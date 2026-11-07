@@ -66,3 +66,7 @@ The source subtree history comes from `esp32panel` commit `b72b70f` (2026-11-07)
 The original firmware history is unchanged. Shared library history continues in
 `home-panel-core`. Configure the new repository's own origin before publishing;
 the firmware origin is intentionally not reused.
+
+Split acceptance: 121 source-integration tests and 129 release-bundle tests
+pass on HA 2026.11, including browser checks and offline dependency loading.
+These are host tests, not installed-device or full production-HA acceptance.

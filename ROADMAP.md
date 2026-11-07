@@ -100,4 +100,3 @@ family; activation is not inferred from the editor's ability to export JSON.
 Release gate: host/browser acceptance plus separately authorized OTA/device,
 physical SD/power-loss and long memory/reconnect checks. Planning these stages
 does not authorize a firmware build, upload or real household action.
-
