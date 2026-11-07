@@ -1,0 +1,51 @@
+{
+  "title": "Home Panel Configuration",
+  "config": {
+    "step": {
+      "user": {
+        "title": "Connect a Home Panel",
+        "description": "Read-only configuration companion. The panel must provide capabilities.v1 and a stable factory ID. Keep the ESPHome integration for live states and controls. Use HTTP only on a trusted LAN/VPN.",
+        "data": {"url": "Panel origin", "access_key": "Panel access key"},
+        "data_description": {"url": "For example http://192.168.1.45, without a path or credentials.", "access_key": "Current panel debug/configuration API key; stored only in the HA backend."}
+      },
+      "reconfigure": {
+        "title": "Change panel connection",
+        "description": "Enter the new address and key. The panel must have the same factory ID as before.",
+        "data": {"url": "Panel origin", "access_key": "Panel access key"}
+      },
+      "reauth_confirm": {
+        "title": "Update panel access key",
+        "description": "The key was rejected. The existing address and paired factory ID will be retained.",
+        "data": {"access_key": "Panel access key"}
+      }
+    },
+    "error": {
+      "cannot_connect": "Unable to read panel metadata. Check the address, network and panel availability.",
+      "invalid_auth": "The panel rejected the access key.",
+      "invalid_connection": "Enter an HTTP(S) origin without credentials, a path or query, and a nonempty access key.",
+      "unsupported_firmware": "Firmware metadata is missing or incompatible. Stable factory identity and capabilities.v1 are required; setup cannot use the IP address as identity.",
+      "wrong_device": "This is not the paired panel, or its factory ID is unavailable. The existing pairing has not been changed."
+    },
+    "abort": {
+      "already_configured": "This panel is already configured. Change its address or key using Reconfigure.",
+      "reauth_successful": "The access key was updated.",
+      "reconfigure_successful": "The connection was updated without changing the paired panel."
+    }
+  },
+  "options": {"step": {"init": {
+    "title": "Metadata polling",
+    "data": {"poll_interval": "Polling interval (seconds)"},
+    "data_description": {"poll_interval": "30 to 600 seconds. No household device commands are sent."}
+  }}},
+  "entity": {
+    "sensor": {
+      "loaded_revision": {"name": "Runtime configuration revision"},
+      "loaded_source": {"name": "Runtime configuration source"},
+      "max_bytes": {"name": "Runtime JSON byte limit"}
+    },
+    "binary_sensor": {
+      "sd_ready": {"name": "Configuration SD ready"},
+      "busy": {"name": "Configuration API busy"}
+    }
+  }
+}

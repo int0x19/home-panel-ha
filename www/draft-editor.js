@@ -1,0 +1,332 @@
+import {DraftError, editDraft, identity, nextRevision, normalizedDraft, actionCapacity, editableAction, assertDraftBudget} from './runtime-draft.mjs';
+
+const labels = {
+  en: {empty:'No local draft', room:'Room', addRoom:'Add room', up:'Move up', down:'Move down', delete:'Delete',
+    name:'Name', kind:'Page type', normal:'Room', actions:'Actions', update:'Update draft', cancel:'Cancel',
+    widgets:'Actions', addAction:'Add action', entity:'Entity', destination:'Page', icon:'Icon', interaction:'Activation',
+    tap:'Tap', hold:'Hold', confirm:'Confirmation', enabled:'Enabled', stop:'Stop control', check:'On ESP32', checkHA:'In HA', hostModel:'HA model',
+    export:'Export draft', reset:'Discard local draft', local:'Local draft', notChecked:'Not checked', previous:'Previous validation',
+    saveHA:'Save in HA', loadHA:'Load HA draft', deleteHA:'Delete HA draft', savedHA:'Saved in HA', unsaved:'Unsaved',
+    storageUnknown:'HA draft status unknown', conflict:'HA draft version conflict', discardLoad:'Replace local changes with the HA draft?',
+    confirmDeleteHA:'Delete the saved HA draft and local edits?', restoreInvalid:'Saved draft is not editable',
+    accepted:'Valid model', rejected:'Invalid model', newRoom:'New room', deleteRoom:'Delete room and its actions?',
+    deleteAction:'Delete action?', discardFields:'Discard uncommitted fields?', discardDraft:'Discard local draft?',
+    readOnly:'Read-only', pending:'Uncommitted fields', changedSource:'Source changed since draft creation',
+    changedCaps:'Capabilities changed', offline:'Status refresh required', pages:'pages', tiles:'tiles',
+    geometry:'Invalid geometry', text:'Invalid or oversized name', entityError:'Invalid action entity',
+    action_fields:'Unsupported action settings', capability:'Capability unavailable', room_limit:'Room limit reached',
+    widget_limit:'Widget limit reached', room_full:'Room is full', page_limit:'Page limit reached', byte_limit:'JSON byte limit exceeded',
+    opaque_room:'This page contains unsupported fields/widgets', opaque_action:'Action is read-only', duplicate:'Duplicate action on page',
+    identity:'Duplicate or invalid ID', missing:'Item no longer exists', referenced_room:'Room is referenced by attention',
+    revision_limit:'Revision limit reached', operation:'Unsupported edit', failed:'Draft edit rejected'},
+  ru: {empty:'Нет локального черновика', room:'Комната', addRoom:'Добавить комнату', up:'Переместить выше', down:'Переместить ниже', delete:'Удалить',
+    name:'Название', kind:'Тип страницы', normal:'Комната', actions:'Действия', update:'Обновить черновик', cancel:'Отмена',
+    widgets:'Действия', addAction:'Добавить действие', entity:'Сущность', destination:'Страница', icon:'Иконка', interaction:'Активация',
+    tap:'Нажатие', hold:'Удержание', confirm:'Подтверждение', enabled:'Включено', stop:'Кнопка остановки', check:'На ESP32', checkHA:'В HA', hostModel:'Модель HA',
+    export:'Экспорт черновика', reset:'Отбросить локальный черновик', local:'Локальный черновик', notChecked:'Не проверено', previous:'Предыдущая проверка',
+    saveHA:'Сохранить в HA', loadHA:'Загрузить черновик HA', deleteHA:'Удалить черновик HA', savedHA:'Сохранён в HA', unsaved:'Не сохранён',
+    storageUnknown:'Статус черновика HA неизвестен', conflict:'Конфликт версии черновика HA', discardLoad:'Заменить локальные изменения черновиком из HA?',
+    confirmDeleteHA:'Удалить сохранённый черновик HA и локальные правки?', restoreInvalid:'Сохранённый черновик недоступен для редактирования',
+    accepted:'Модель корректна', rejected:'Ошибка модели', newRoom:'Новая комната', deleteRoom:'Удалить комнату и её действия?',
+    deleteAction:'Удалить действие?', discardFields:'Отбросить незавершённые поля?', discardDraft:'Отбросить локальный черновик?',
+    readOnly:'Только чтение', pending:'Незавершённые поля', changedSource:'Источник изменился после создания черновика',
+    changedCaps:'Возможности панели изменились', offline:'Нужно обновить статус', pages:'стр.', tiles:'плиток',
+    geometry:'Некорректная геометрия', text:'Некорректное или слишком длинное название', entityError:'Некорректная сущность действия',
+    action_fields:'Неподдерживаемые настройки действия', capability:'Возможность недоступна', room_limit:'Достигнут лимит комнат',
+    widget_limit:'Достигнут лимит виджетов', room_full:'Комната заполнена', page_limit:'Достигнут лимит страниц', byte_limit:'Превышен лимит JSON',
+    opaque_room:'На странице есть неподдерживаемые поля или виджеты', opaque_action:'Действие доступно только для чтения', duplicate:'Действие уже есть на странице',
+    identity:'Некорректный или повторяющийся ID', missing:'Элемент больше не существует', referenced_room:'На комнату ссылается источник внимания',
+    revision_limit:'Достигнут предел ревизии', operation:'Неподдерживаемая операция', failed:'Изменение отклонено'},
+};
+const icons = {'refresh-cw':'refresh', palette:'palette', power:'power', bell:'bell', moon:'weather-night', sun:'white-balance-sunny',
+  house:'home', save:'content-save', fan:'fan', sprout:'sprout'};
+
+class HomePanelDraft extends HTMLElement {
+  constructor() {
+    super();
+    this.attachShadow({mode:'open'});
+    this._version = 0;
+    this._lang = 'en';
+    this._context = {};
+    this._draft = null;
+    this._unsaved = false;
+    this._storeFresh = false;
+    this._storeRevision = null;
+    this._room = '';
+    this._editing = null;
+    this._fields = false;
+    this.shadowRoot.innerHTML = `
+      <link rel="stylesheet" href="${new URL('./home-panel.css', import.meta.url)}">
+      <div class="draft-toolbar" id="draft-storage-tools">
+        <button id="draft-save-ha"><ha-icon icon="mdi:content-save-outline">&#9633;</ha-icon><span data-label="saveHA"></span></button>
+        <button id="draft-load-ha"><ha-icon icon="mdi:folder-open-outline">&#8595;</ha-icon><span data-label="loadHA"></span></button>
+        <button id="draft-delete-ha" class="icon danger" data-tool="deleteHA"><ha-icon icon="mdi:trash-can-outline">&#215;</ha-icon></button>
+      </div>
+      <p id="draft-storage-status" class="report muted" role="status"></p>
+      <p id="draft-empty" class="muted"></p>
+      <section id="draft-work" hidden>
+        <div class="draft-toolbar"><span id="draft-base" class="muted"></span>
+          <button id="draft-model-check"><ha-icon icon="mdi:check-decagram-outline">&#10003;</ha-icon><span data-label="checkHA"></span></button>
+          <button id="draft-check"><ha-icon icon="mdi:check">&#10003;</ha-icon><span data-label="check"></span></button>
+          <button id="draft-export" class="icon" data-tool="export"><ha-icon icon="mdi:download">&#8595;</ha-icon></button>
+          <button id="draft-reset" class="icon" data-tool="reset"><ha-icon icon="mdi:undo">&#8630;</ha-icon></button>
+        </div>
+        <p id="draft-model-status" class="report" role="status"></p>
+        <p id="draft-status" class="report" role="status"></p><p id="draft-error" class="warning" role="status" hidden></p>
+        <div class="draft-toolbar"><label class="grow"><span data-label="room"></span><select id="draft-room"></select></label>
+          <button id="draft-add-room" class="icon" data-tool="addRoom"><ha-icon icon="mdi:plus">+</ha-icon></button>
+          <button id="draft-room-up" class="icon" data-tool="up"><ha-icon icon="mdi:arrow-up">&#8593;</ha-icon></button>
+          <button id="draft-room-down" class="icon" data-tool="down"><ha-icon icon="mdi:arrow-down">&#8595;</ha-icon></button>
+          <button id="draft-delete-room" class="icon danger" data-tool="delete"><ha-icon icon="mdi:trash-can-outline">&#215;</ha-icon></button>
+        </div>
+        <form id="draft-room-form" class="draft-fields">
+          <label><span data-label="name"></span><input id="draft-room-name" required maxlength="256" autocomplete="off"></label>
+          <label><span data-label="kind"></span><select id="draft-room-kind"><option value="room" data-label="normal"></option><option value="actions" data-label="actions"></option></select></label>
+          <div class="draft-toolbar"><button id="draft-update-room" type="submit" data-label="update"></button><button id="draft-cancel-room" type="button" data-label="cancel"></button><span id="draft-room-id" class="muted"></span></div>
+        </form>
+        <div class="draft-toolbar"><h2 data-label="widgets"></h2><span id="draft-fit" class="muted"></span><button id="draft-add-action" class="icon" data-tool="addAction"><ha-icon icon="mdi:plus">+</ha-icon></button></div>
+        <div id="draft-widgets"></div>
+        <form id="draft-action-form" class="draft-fields" hidden>
+          <label><span data-label="name"></span><input id="draft-action-name" required maxlength="256" autocomplete="off"></label>
+          <label><span data-label="entity"></span><input id="draft-entity" required maxlength="127" pattern="(script|scene|button|input_button)\\.[a-z0-9_]+" list="draft-entities" autocomplete="off" spellcheck="false"><datalist id="draft-entities"></datalist></label>
+          <label><span data-label="destination"></span><select id="draft-target"></select></label>
+          <label><span data-label="icon"></span><select id="draft-icon"></select></label>
+          <label><span data-label="interaction"></span><select id="draft-interaction"></select></label>
+          <label class="draft-check"><input type="checkbox" id="draft-enabled"><span data-label="enabled"></span></label>
+          <label class="draft-check" id="draft-stop-field"><input type="checkbox" id="draft-stop"><span data-label="stop"></span></label>
+          <div class="draft-toolbar"><button type="submit" id="draft-update-action" class="primary" data-label="update"></button><button type="button" id="draft-cancel-action" data-label="cancel"></button></div>
+        </form>
+      </section>`;
+    this.$('draft-room').onchange = event => {
+      if (!this._canLeave()) { event.target.value = this._room; return; }
+      this._room = event.target.value; this._editing = null; this._fields = false; this._render();
+    };
+    this.$('draft-add-room').onclick = () => this._edit({type:'add_room', id:identity('room'), name:this.t('newRoom'), kind:'room'}, true);
+    for (const [id, offset] of [['draft-room-up', -1], ['draft-room-down', 1]]) this.$(id).onclick = () => this._edit({type:'move_room', room:this._room, offset});
+    this.$('draft-delete-room').onclick = () => { if (confirm(this.t('deleteRoom'))) this._edit({type:'delete_room', room:this._room}); };
+    this.$('draft-room-form').onsubmit = event => {
+      event.preventDefault(); this._edit({type:'room_settings', room:this._room, name:this.$('draft-room-name').value.trim(), kind:this.$('draft-room-kind').value});
+    };
+    this.$('draft-cancel-room').onclick = () => { this._fields = false; this._render(); };
+    this.$('draft-add-action').onclick = () => this._openAction(null);
+    this.$('draft-cancel-action').onclick = () => { if (this._canLeave()) { this._editing = null; this._fields = false; this._render(); } };
+    this.$('draft-action-form').onsubmit = event => {
+      event.preventDefault();
+      const settings = {name:this.$('draft-action-name').value.trim(), entity:this.$('draft-entity').value.trim(), icon:this.$('draft-icon').value,
+        interaction:this.$('draft-interaction').value, enabled:this.$('draft-enabled').checked};
+      if (settings.entity.startsWith('script.') && this.$('draft-stop').checked) settings.allow_stop = true;
+      this._edit({type:'put_action', room:this._room, previous:this._editing || null, id:identity('action'), target:this.$('draft-target').value, settings});
+    };
+    for (const form of ['draft-room-form', 'draft-action-form']) this.$(form).oninput = () => { this._fields = true; this._controls(); };
+    this.$('draft-entity').onchange = () => {
+      const state = this._context.states?.[this.$('draft-entity').value];
+      if (!this.$('draft-action-name').value && state) this.$('draft-action-name').value = state.attributes.friendly_name || state.entity_id;
+      this._stopField();
+    };
+    this.$('draft-check').onclick = () => {
+      if (this._context.canValidate && !this._fields && this._draft && !this._capsChanged()) this.dispatchEvent(new CustomEvent('draft-validate',
+        {bubbles:true, composed:true, detail:{document:JSON.stringify(normalizedDraft(this._draft)), version:this._version}}));
+    };
+    this.$('draft-model-check').onclick = () => {
+      if (this._context.storageOnline && !this._context.busy && !this._fields && this._editing === null && this._draft) {
+        this.dispatchEvent(new CustomEvent('draft-model-check', {bubbles:true, composed:true,
+          detail:{document:JSON.stringify(normalizedDraft(this._draft)), version:this._version}}));
+      }
+    };
+    this.$('draft-export').onclick = () => this._export();
+    this.$('draft-reset').onclick = () => { if (confirm(this.t('discardDraft'))) this.clear(); };
+    this.$('draft-save-ha').onclick = () => {
+      if (this._draft && this._storeFresh && !this._fields && this._editing === null && this._context.storageOnline) this._storageEvent('save', {
+        expected_revision:this._storeRevision, document:JSON.stringify(normalizedDraft(this._draft)),
+        original:this._origin, capabilities:this._caps, version:this._version});
+    };
+    this.$('draft-load-ha').onclick = () => { if (!this.dirty || confirm(this.t('discardLoad'))) this._storageEvent('load', {}); };
+    this.$('draft-delete-ha').onclick = () => { if (this._storeFresh && confirm(this.t('confirmDeleteHA'))) this._storageEvent('delete', {expected_revision:this._storeRevision}); };
+  }
+  $(id) { return this.shadowRoot.getElementById(id); }
+  t(key) { return (labels[this._lang] || labels.en)[key] || key; }
+  get dirty() { return this._unsaved || this._fields; }
+  get version() { return this._version; }
+  get source() { return this._base?.source; }
+  get sourceHash() { return this._base?.sha256; }
+  get document() { return this._draft ? structuredClone(this._draft) : null; }
+  set context(value) {
+    this._context = value;
+    this._lang = value.language || 'en';
+    this._controls();
+  }
+  begin(original, caps, highWater) {
+    try {
+      const doc = JSON.parse(original.document);
+      if (doc.format !== 'home-panel-runtime' || doc.schema_version !== 1 || !Array.isArray(doc.rooms) || !doc.rooms.length) throw new DraftError('capability');
+      doc.revision = nextRevision(doc, highWater);
+      assertDraftBudget(doc, caps);
+      this._draft = doc; this._base = {source:original.source, sha256:original.sha256, revision:original.revision};
+      this._origin = {source:original.source, sha256:original.sha256, revision:original.revision, document:original.document};
+      this._unsaved = true;
+      this._caps = structuredClone(caps); this._room = doc.rooms[0].id;
+      this._editing = null; this._fields = false; this._validation = this._modelValidation = null; this._error = ''; this._version++;
+      this._render(); this._notify();
+    } catch (error) { this._error = error.code || 'failed'; this._controls(); }
+  }
+  clear(resetStorage = false) {
+    this._draft = this._base = this._caps = this._validation = this._modelValidation = null;
+    this._room = ''; this._editing = null; this._fields = false; this._error = ''; this._version++;
+    this._origin = null; this._unsaved = false;
+    if (resetStorage) { this._storeRevision = null; this._storeFresh = false; this._storeHasRecord = false; this._storeGeneration = 0; this._storeError = ''; }
+    for (const input of this.shadowRoot.querySelectorAll('input')) { input.value = ''; input.checked = false; }
+    this.$('draft-widgets').replaceChildren(); this.$('draft-entities').replaceChildren(); this.$('draft-target').replaceChildren();
+    this.$('draft-room').replaceChildren(); this._controls(); this._notify();
+  }
+  _storageEvent(operation, detail) { this.dispatchEvent(new CustomEvent('draft-storage-' + operation, {bubbles:true, composed:true, detail})); }
+  invalidateStorage(code = '') { this._storeFresh = false; this._storeError = code; this._controls(); }
+  acceptStored(result, restore = false, version = this._version) {
+    if (restore) this.clear();
+    this._storeRevision = result.revision; this._storeGeneration = result.generation;
+    this._storeHasRecord = !!result.record; this._storeFresh = true; this._storeError = '';
+    if (restore && result.record) {
+      try {
+        const record = result.record, doc = JSON.parse(record.document);
+        assertDraftBudget(doc, record.capabilities);
+        this._draft = doc; this._origin = structuredClone(record.original);
+        this._base = {source:this._origin.source, sha256:this._origin.sha256, revision:this._origin.revision};
+        this._caps = structuredClone(record.capabilities); this._room = doc.rooms[0].id;
+        this._unsaved = false; this._version++; this._validation = null; this._validationFresh = false;
+        this._render();
+      } catch { this._error = 'restoreInvalid'; }
+    } else if (!restore && version === this._version) this._unsaved = false;
+    this._controls(); this._notify();
+    return !result.record || !!this._draft;
+  }
+  invalidate() { this._validationFresh = false; this._controls(); }
+  acceptValidation(report, version) {
+    if (!this._draft || this._version !== version) return;
+    this._validation = report; this._validationVersion = version; this._validationFresh = true; this._controls();
+  }
+  acceptModelValidation(report, version) {
+    if (!this._draft || this._version !== version) return;
+    this._modelValidation = report; this._modelValidationVersion = version; this._controls();
+  }
+  _notify() { this.dispatchEvent(new CustomEvent('draft-changed', {bubbles:true, composed:true})); }
+  _canLeave() { return !this._fields || confirm(this.t('discardFields')); }
+  _capsChanged() { return this._caps && this._context.capabilities && JSON.stringify(this._caps) !== JSON.stringify(this._context.capabilities); }
+  _edit(operation, selectLast = false) {
+    if (!this._draft || this._context.busy || this._capsChanged()) return;
+    try {
+      this._draft = editDraft(this._draft, operation, this._caps);
+      this._version++; this._unsaved = true; this._validationFresh = false; this._error = ''; this._fields = false; this._editing = null;
+      if (selectLast) this._room = this._draft.rooms.at(-1).id;
+      if (!this._draft.rooms.some(r => r.id === this._room)) this._room = this._draft.rooms[0].id;
+      if (operation.type === 'put_action') this._room = operation.target;
+      this._render(); this._notify();
+    } catch (error) { this._error = error.code || 'failed'; this._controls(); }
+  }
+  _button(glyph, key, handler) {
+    const button = document.createElement('button'), icon = document.createElement('ha-icon');
+    button.type = 'button'; button.className = 'icon'; button.title = button.ariaLabel = this.t(key);
+    icon.setAttribute('icon', 'mdi:' + glyph); icon.textContent = glyph === 'arrow-up' ? '\u2191' : glyph === 'arrow-down' ? '\u2193' : '\u00d7';
+    button.append(icon); button.onclick = handler; return button;
+  }
+  _render() {
+    if (!this._draft) { this._controls(); return; }
+    const room = this._draft.rooms.find(r => r.id === this._room);
+    this.$('draft-room').replaceChildren(...this._draft.rooms.map(r => new Option(r.name, r.id)));
+    this.$('draft-room').value = room.id; this.$('draft-room-name').value = room.name; this.$('draft-room-kind').value = room.kind || 'room';
+    this.$('draft-room-id').textContent = room.id;
+    this.$('draft-widgets').replaceChildren(...room.widgets.map((widget, index) => {
+      const row = document.createElement('div'); row.className = 'draft-widget'; row.dataset.widgetId = widget.id;
+      const edit = document.createElement('button'), name = document.createElement('strong'), entity = document.createElement('small'), glyph = document.createElement('ha-icon');
+      const supported = editableAction(widget, this._caps);
+      edit.type = 'button'; edit.className = 'draft-widget-main'; edit.disabled = !supported;
+      glyph.setAttribute('icon', 'mdi:' + (supported ? icons[widget.settings.icon] || 'gesture-tap-button' : 'lock-outline'));
+      glyph.textContent = supported ? '\u25c7' : '\u2014';
+      name.textContent = widget.settings.name; entity.textContent = widget.settings.entity || widget.type;
+      const text = document.createElement('span'); text.append(name, entity); edit.append(glyph, text); edit.onclick = () => this._openAction(widget.id);
+      const tools = document.createElement('div'); tools.className = 'draft-widget-tools';
+      for (const [offset, glyph, label] of [[-1, 'arrow-up', 'up'], [1, 'arrow-down', 'down']]) {
+        const button = this._button(glyph, label, () => this._edit({type:'move_action', room:room.id, id:widget.id, offset}));
+        button.dataset.blocked = String(!supported || index + offset < 0 || index + offset >= room.widgets.length); tools.append(button);
+      }
+      const remove = this._button('trash-can-outline', 'delete', () => { if (confirm(this.t('deleteAction'))) this._edit({type:'delete_action', room:room.id, id:widget.id}); });
+      remove.dataset.blocked = String(!supported); tools.append(remove); row.append(edit, tools); return row;
+    }));
+    this.$('draft-action-form').hidden = this._editing === null;
+    this._controls();
+  }
+  _openAction(id) {
+    if (!this._canLeave()) return;
+    const room = this._draft.rooms.find(r => r.id === this._room);
+    const settings = id ? room.widgets.find(w => w.id === id).settings : {name:'', entity:'', icon:this._caps.validation.action_icons[0], interaction:'tap', enabled:true};
+    this._editing = id || ''; this._fields = false;
+    this.$('draft-action-name').value = settings.name; this.$('draft-entity').value = settings.entity;
+    this.$('draft-icon').replaceChildren(...this._caps.validation.action_icons.map(i => new Option(i, i)));
+    this.$('draft-interaction').replaceChildren(...this._caps.validation.interactions.map(i => new Option(this.t(i), i)));
+    this.$('draft-icon').value = settings.icon || this._caps.validation.action_icons[0]; this.$('draft-interaction').value = settings.interaction || 'tap';
+    this.$('draft-enabled').checked = settings.enabled !== false; this.$('draft-stop').checked = settings.allow_stop === true;
+    const targets = this._draft.rooms.filter(r => !Object.keys(r.groups).length && r.widgets.every(w => w.type === 'action'));
+    this.$('draft-target').replaceChildren(...targets.map(r => new Option(r.name, r.id)));
+    this.$('draft-target').value = room.id;
+    if (!id && room.kind !== 'actions' && room.widgets.length >= actionCapacity(this._draft)) {
+      this.$('draft-target').value = targets.find(r => r.kind === 'actions')?.id || room.id;
+    }
+    this.$('draft-entities').replaceChildren(...Object.entries(this._context.states || {}).filter(([id]) => /^(script|scene|button|input_button)\./.test(id)).map(([id, state]) => new Option(state.attributes.friendly_name || id, id)));
+    this.$('draft-action-form').hidden = false;
+    this._stopField(); this._controls(); this.$('draft-action-name').focus();
+  }
+  _stopField() {
+    this.$('draft-stop-field').hidden = !this._caps?.features.includes('script-controls.v1') || !this.$('draft-entity').value.startsWith('script.');
+  }
+  _controls() {
+    const root = this.shadowRoot, blocked = !!this._context.busy;
+    root.querySelectorAll('[data-label]').forEach(e => { e.textContent = this.t(e.dataset.label); });
+    root.querySelectorAll('[data-tool]').forEach(e => { e.title = e.ariaLabel = this.t(e.dataset.tool); });
+    this.$('draft-empty').textContent = this.t('empty'); this.$('draft-empty').hidden = !!this._draft;
+    this.$('draft-work').hidden = !this._draft;
+    const formOpen = this._editing !== null;
+    this.$('draft-save-ha').disabled = blocked || !this._context.storageOnline || !this._storeFresh || !this._draft || !this._unsaved || this._fields || formOpen;
+    this.$('draft-load-ha').disabled = blocked || !this._context.storageOnline;
+    this.$('draft-delete-ha').disabled = blocked || !this._context.storageOnline || !this._storeFresh || !this._storeHasRecord;
+    this.$('draft-storage-status').textContent = this._storeError === 'draft_conflict' ? this.t('conflict') :
+      !this._storeFresh ? this.t('storageUnknown') : this._unsaved || this._fields ? this.t('unsaved') :
+      this._storeHasRecord ? `${this.t('savedHA')} \u00b7 v${this._storeGeneration}` : '';
+    if (!this._draft) return;
+    const room = this._draft.rooms.find(r => r.id === this._room), index = this._draft.rooms.indexOf(room);
+    const cap = actionCapacity(this._draft);
+    const opaque = Object.keys(room.groups).length || room.widgets.some(w => w.type !== 'action');
+    this.$('draft-base').textContent = `${this.t('local')} r${this._draft.revision} \u00b7 ${this._base.source} r${this._base.revision}`;
+    this.$('draft-fit').textContent = opaque ? this.t('readOnly') : `${room.widgets.length} / ${cap} ${this.t('tiles')} \u00b7 ${room.kind === 'actions' ? Math.max(1, Math.ceil(room.widgets.length / (cap || 1))) : 1} ${this.t('pages')}`;
+    const stale = !this._validationFresh || this._validationVersion !== this._version || !this._context.fresh;
+    this.$('draft-status').textContent = [this._fields && this.t('pending'), this._context.sourceCurrent === false && this.t('changedSource'), this._capsChanged() && this.t('changedCaps'),
+      'ESP32: ' + (this._validation ? `${stale ? this.t('previous') + ': ' : ''}${this.t(this._validation.valid ? 'accepted' : 'rejected')}` : this.t('notChecked'))].filter(Boolean).join(' \u00b7 ');
+    this.$('draft-status').className = 'report ' + (this._validation && !stale ? this._validation.valid ? 'success' : 'warning' : 'muted');
+    const modelStale = this._fields || this._modelValidationVersion !== this._version;
+    this.$('draft-model-status').textContent = this.t('hostModel') + ': ' + (this._modelValidation ?
+      `${modelStale ? this.t('previous') + ': ' : ''}${this.t(this._modelValidation.valid ? 'accepted' : 'rejected')}` : this.t('notChecked'));
+    this.$('draft-model-status').className = 'report ' + (this._modelValidation && !modelStale ? this._modelValidation.valid ? 'success' : 'warning' : 'muted');
+    this.$('draft-error').hidden = !this._error; this.$('draft-error').textContent = this.t(this._error === 'entity' ? 'entityError' : this._error || 'failed');
+    for (const e of root.querySelectorAll('button, input, select')) e.disabled = blocked;
+    this.$('draft-save-ha').disabled = blocked || !this._context.storageOnline || !this._storeFresh || !this._unsaved || this._fields || formOpen;
+    this.$('draft-load-ha').disabled = blocked || !this._context.storageOnline;
+    this.$('draft-delete-ha').disabled = blocked || !this._context.storageOnline || !this._storeFresh || !this._storeHasRecord;
+    for (const id of ['draft-add-room', 'draft-room-up', 'draft-room-down', 'draft-delete-room', 'draft-add-action']) this.$(id).disabled = blocked || this._fields || formOpen || this._capsChanged();
+    this.$('draft-add-room').disabled ||= this._draft.rooms.length >= this._caps.limits.rooms;
+    this.$('draft-room-up').disabled ||= index === 0; this.$('draft-room-down').disabled ||= index === this._draft.rooms.length - 1;
+    this.$('draft-delete-room').disabled ||= this._draft.rooms.length === 1 || !!opaque;
+    this.$('draft-add-action').disabled ||= !!opaque || !this._caps.features.includes('widget.action') || this._draft.rooms.reduce((n, r) => n + r.widgets.length, 0) >= this._caps.limits.widgets;
+    this.$('draft-update-room').disabled = blocked || !this._fields || formOpen || this._capsChanged(); this.$('draft-cancel-room').disabled = blocked || !this._fields || formOpen;
+    this.$('draft-room-name').disabled = blocked || formOpen || this._capsChanged(); this.$('draft-room-kind').disabled = blocked || formOpen || !!opaque || this._capsChanged();
+    for (const button of root.querySelectorAll('#draft-widgets button')) button.disabled = blocked || this._fields || formOpen || this._capsChanged() || button.dataset.blocked === 'true' || (button.classList.contains('draft-widget-main') && !editableAction(room.widgets.find(w => w.id === button.parentElement.dataset.widgetId), this._caps));
+    this.$('draft-check').disabled = blocked || this._fields || formOpen || !this._context.canValidate || this._capsChanged();
+    this.$('draft-model-check').disabled = blocked || this._fields || formOpen || !this._context.storageOnline;
+    this.$('draft-export').disabled = blocked || this._fields || formOpen;
+    this.$('draft-update-action').disabled = blocked || this._capsChanged();
+    this._stopField();
+  }
+  _export() {
+    if (!this._draft || this._fields || this._editing !== null || this._context.busy) return;
+    const url = URL.createObjectURL(new Blob([JSON.stringify(normalizedDraft(this._draft))], {type:'application/json'}));
+    const anchor = document.createElement('a'); anchor.href = url; anchor.download = `panel-draft-r${this._draft.revision}.json`; anchor.click();
+    setTimeout(() => URL.revokeObjectURL(url), 0);
+  }
+}
+if (!customElements.get('home-panel-draft')) customElements.define('home-panel-draft', HomePanelDraft);
