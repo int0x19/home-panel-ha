@@ -1,0 +1,5 @@
+# Separate HA test environment; do not install into the ESPHome virtualenv.
+# Official test fixtures pin the matching HA version and require Python >=3.14.2.
+pytest-homeassistant==2026.11.0
+# Match the frontend requirement declared by HA 2026.11.0.
+home-assistant-frontend==20261028.4

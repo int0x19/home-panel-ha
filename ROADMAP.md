@@ -1,0 +1,103 @@
+# Home Panel HA Roadmap
+
+The complete editor/integration backlog moved here from esp32panel at the
+repository split. Device firmware/native renderer acceptance stays in that repo;
+shared model/protocol work belongs to home-panel-core.
+
+### 3.8. HA integration and primary configuration editor
+
+Accepted direction, 2026-11-05: HA builds configuration from user-selected
+entities, rooms and presentation settings, then initiates explicit deployment.
+ESP32 validates and stores JSON, builds the shared LVGL UI and handles live
+states/actions through ESPHome Native API. The integration does not replace the
+standard ESPHome integration, and ESP32 needs neither an HA access token nor a
+parallel HA state WebSocket client. Only configuration management moves to HA.
+
+The contract/read-check client and stable-identity/decoder-metadata extension
+are host-tested on 2026-11-07; the latter is not deployed. A read-only companion
+now passes setup/lifecycle, administrator-backed read/check and component-browser
+tests on HA 2026.11.0. The administrator-only metadata/import/check page is
+implemented in 3.8.2/3.8.3, with an action/room editor and bounded HA checkpoints.
+Full shared-model validation is now available in HA. Next add registry selection, retaining the device
+identity/limits/asset acceptance gates in 3.8.1. Develop 3.8.3 against the Linux
+action pilot while 3.6/3.7 progress; gate
+device writes in 3.8.4 on the contract/security checks and add widget families in
+3.8.5 only as their runtime support passes. Do not wait for all device families
+before starting the editor, or claim that the editor alone completes migration.
+The current ESP32 JSON path is a separate action preview with dispatch disabled;
+its 16 KiB input ceiling is not the host schema's larger provisional budget.
+
+#### 3.8.1. Shared contract, authority and capability handshake
+
+- [x] Document the HA/device responsibilities and versioned configuration-management contract, reusing the schema, canonical encoding, stable IDs, validator and storage API from 3.5. Distinguish HA draft revision, device active/candidate revisions and content digests; renaming/reordering must not change widget identity. The 2026-11-07 [contract and compatibility matrix](docs/CORE_CONTRACT.md) distinguish installed HTTP v1, prepared identity/decoder metadata and pending ownership/activation checks; physical device acceptance remains open below.
+- [x] Prepare the additive `capabilities.v1` boundary and explicit client identity pinning on Linux (2026-11-07): factory eFuse MAC-48 ID independent of IP/name/boot/SD, ID/session guards in status/jobs/metadata, one main-loop cached GET document, actual boot ceilings and inventories shared with the C++ decoder. Test restart/replacement/invalid identity, repeated read-only cache access, configured input limits and legacy fallback. Report action-preview-only/model-only support, zero subscriptions, unmeasured limits, incomplete loaded asset inventory and unmanaged/not-enforced authority. No target build/OTA, managed write enablement or physical identity/memory claim; see [prepared metadata](docs/CORE_CONTRACT.md#prepared-capabilities-extension).
+- [ ] Finish and accept device metadata on the physical board: verify factory identity across restart/network changes, complete loaded font/icon inventory and measured per-board input/room/widget/subscription budgets. Distinguish accepted decoder syntax from renderable assets and compiled-only room families. Keep schema/protocol negotiation and reject incompatible documents rather than downgrading controls silently; the prepared configured ceilings do not complete this gate.
+- [ ] Define and enforce local versus HA-managed configuration authority, ownership handover and authenticated emergency local recovery. Compare the current revision/digest before writes; a second HA instance, browser, reconnect or local import must not silently overwrite another editor's work. Managed mode is planned, not enforced by the current uploader.
+- [ ] Specify portable import/export and migration/precedence for existing YAML defaults, socket aliases, Plant overrides, light presets and backlight preferences. Keep hardware, Wi-Fi/API/OTA credentials, executable code and live entity readings out of runtime JSON. Preserve compatible recovery documents on schema/firmware downgrade.
+
+Exit gate: a documented compatibility/authority matrix and shared test fixtures;
+the installed firmware's limitations are explicit, with no device write needed.
+
+#### 3.8.2. Read-only HA integration and device client
+
+- [x] Prepare the HA-independent async read/check client and optional injected-session aiohttp transport (2026-11-07): status, exact active/candidate/backup export and validate-only, bounded response/stream/job polling, session/revision/path/header/SHA guards and no persistent write/actuator methods. Add synthetic shared fixtures and Linux tests, including the actual C++ file/HTTP component on temporary storage. This client slice alone is not an integration or verified physical pairing; the installed HTTP profile still lacks the prepared identity/decoder-metadata extension and any managed owner. See [configuration-management contract](docs/CORE_CONTRACT.md).
+- [x] Add an isolated read-only [custom integration](docs/HA_INTEGRATION.md) with manual address/key setup, stable unique panel identity, duplicate prevention, connection checks, options, identity-preserving reconfigure/reauth and clean unload/reload. Test against actual HA 2026.11.0 and matching official pytest fixtures, including HA-owned HTTP session and loopback requests; no private ESPHome integration APIs or forced ESPHome upgrade. Five diagnostic entities and redacted diagnostics expose metadata only; all poll requests are GET. Physical pairing requires the undeployed metadata firmware, while discovery, browser JSON import/check and editor/write gates remain below.
+- [x] Integrate the read/check client with HA-owned session/lifecycle and the negotiated identity/capability extension in the [read/check backend](docs/HA_READ_CHECK_API.md) (2026-11-07). Bound one explicit transaction per paired entry and share its client with background polling. Verify exact import bytes/source/SHA/receipt guards and the device shared-validator report, then reject changed boot/capabilities/source metadata. Cancel old requests on unload/reconfigure, retain no document history and require an explicit fresh idle status after uncertain outcomes; no automatic POST replay. Actual HA WS/HTTP and native C++ temporary-VFS checks pass; physical pairing remains blocked on the undeployed metadata firmware, not inferred from IP or host limits.
+- [x] Route read/check requests through four authenticated HA WebSocket backend commands with server-side administrator authorization: list, status, import and validate. Keep key/origin/nonce in backend configuration, return allowlisted metadata and exact credential-free-schema JSON, sanitize error bodies/exception text and refuse address/key/path overrides. Test non-admin refusal before I/O, anonymous admin wrapper, two-session concurrency, UTF-8/device byte limits and task/timer cleanup. No iframe, browser-to-panel HTTP, write endpoint, actuator method or frontend exposure of the panel key is added; see the API's pre-auth probe limitation separately.
+- [x] Add the administrator-only [frontend/import display](docs/HA_FRONTEND.md) for active/candidate/backup metadata and validated JSON, using the accepted backend without changing the device (2026-11-07). Show unmanaged versus future HA-managed status, incompatible metadata, unavailable SD and stale/uncertain results. Preserve exact original downloads separately from local check input; serialize explicit requests and require fresh status after uncertain outcomes/reconnect. Real HA 2026.11 registry/admin/static HTTP checks and component-browser acceptance cover EN/RU, light/dark, 320/390/1280px, UTF-8, file limits, no automatic job replay and discarded late replies. No structured editor, writes or device acceptance is implied; full installed-HA-shell, scoped credentials, physical pairing and resource gates remain open.
+
+Exit gate: integration/client tests and read-only import/check against fixtures
+and the existing device API; no Save, Apply, firmware upload or household command.
+
+#### 3.8.3. HA-hosted room/widget editor and JSON generation
+
+- [x] Register an administrator-only [custom frontend panel](https://contributors.home-assistant.io/frontend/custom-ui/panel/) backed by authenticated HA [WebSocket commands](https://contributors.home-assistant.io/frontend/extending/websocket-api/) (2026-11-07). Use official async static-path/panel registration, HA themes/icons/sidebar events, one shared panel across entries and no iframe/CDN/frontend build step. Headless HA retains the backend; path collisions do not replace another integration's panel. This first surface reads/imports/checks only; it has no persistent drafts or independent renderer/validator.
+- [x] Add the [action/room session-draft pilot](docs/HA_DRAFT_EDITOR.md) (2026-11-07): explicit creation from a checked original, room rename/create/reorder/delete, stable-ID action edit/move/delete, entity suggestions from existing HA states, allowlisted icons/interactions/optional script Stop, bounded export and explicit validate-only. Extract the host editor's action transaction/identity/order/required-feature/revision logic into one JS module used by HA and Linux; retain the existing Python/C++ validators and LVGL renderer. Test Unicode, atomic rejection, capabilities/budgets/no-scroll action planning, opaque-section preservation, actual C++ decode/LVGL render and both browser surfaces. No persistent HA draft, browser pixel preview, write endpoint or real household/device operation is implied.
+- [x] Add bounded [HA draft checkpoints](docs/HA_DRAFT_STORAGE.md) and two-editor optimistic conflicts (2026-11-07): explicit Save/Load/Delete, one current record plus exact original/capability snapshot per paired entry, private atomic HA Store writes with read-back verification, checksummed/versioned bounded reads, tombstone generations and fresh HA-owner revision tokens after restart. Cancelled WS waiters do not cancel an in-flight tracked commit; unknown replies require a read, never automatic replay. Checkpoints survive unload/reload and are removed only with explicit HA draft deletion or removal of that companion entry, not from ESP32. Keep both original bytes and unvalidated status distinct; source-digest integrity is not device attestation. Real temporary-file/HA WS and two-browser tests pass, with no device I/O from the new commands.
+- [x] Move canonical Python encoding to one pure bundled codec used by HA checkpoints and the host tools through a host-only bridge, without importing HA in the ESPHome environment or repository scripts in HA. Test identical source/golden bytes and finite UTF-8 errors. This preserves the existing Python numeric format, not RFC 8785 or new schema semantics.
+- [x] Add [full shared-model validation in HA](docs/HA_MODEL_VALIDATION.md) without an HA-only schema fork (2026-11-07): move existing Python models/profiles/references/geometry into one bundled pure package, retain host YAML/template/file adapters and validate fully resolved JSON without repository I/O. Add an admin-only bounded executor check and separate HA/ESP32 reports, with one worker per entry across disconnects, no device calls or storage and explicit false deployment readiness. Cover standalone bundle/source parity, semantic rejections, actual HA WS, offline restore, stale reports and Linux C++/LVGL regression.
+- [ ] Add bounded revision history/change summaries and full installed-HA-shell acceptance. Checkpoint saving itself still checks framing/basic UI shape/budgets, not complete runtime semantics or deployment readiness; explicit HA model checking does not certify the device. Only explicit checkpoints survive navigation: uncommitted fields, unsaved model edits and raw-check input remain local; HA internal navigation has no blanket dirty-page guard yet.
+- [ ] Select entities from HA registries/states with domain/area filters and capability-aware defaults (light color modes, climate/humidifier modes/ranges, socket readings and Plant bindings). Let users choose what to import and override labels/grouping; HA areas may seed rooms but never silently rearrange them. Missing/null attributes or temporary unavailability must not erase existing settings.
+- [ ] Support room create/rename/reorder, Cyrillic names, stable widget identities, entity/attribute bindings, sensor groups and bundled icons. Start with pilot action tiles; expose additional deployable families only from the device capability handshake. Preserve unmodified unsupported sections on import and block deployment until required capabilities are present.
+- [ ] Reuse resolved template/theme/layout tokens and the existing row planners for the fixed no-scroll grid. Show capacity errors, explicit page placement and optional dedicated Actions pagination rather than shrinking device cards. Resolve templates into numeric JSON values on HA; new fonts/icons/renderer code still require firmware. Validate accurate previews through the shared Linux LVGL path, not a separate browser-only layout promise.
+- [ ] Extend the accepted HA checkpoints with an explicit change summary, full shared-model checks in HA and on the device, and bounded revision history. Keep canonical bounded JSON/required-feature declarations and exact original artifacts separate from SD-candidate Send/Apply. Do not auto-rebind renamed entities or deploy on every edit/state update.
+
+Exit gate: a user-selected configuration round-trips through HA and the shared
+Linux validator/preview, including Unicode, reordered/repeated entities, full
+rooms and two-editor conflicts. Firmware changes and real actions are not needed.
+
+#### 3.8.4. Guarded deployment, activation and recovery
+
+- [ ] Implement explicit Check, Send candidate, Apply/restart, Discard and Restore operations through the existing bounded main-loop job API. Recheck device identity/session, authority, base revision and candidate digest at each step; successful HA/device validation alone does not prove that later SD publication will succeed. Serialize per-panel jobs and bound polling without blocking HA's event loop.
+- [ ] Report draft, checked, saved candidate, applying, running, fallback and unknown-result states separately. After restart, reread identity/session, loaded source/revision/digest and renderer readiness before reporting success; HTTP 202, an upload receipt or a TCP reconnect is not proof of successful activation. Keep the pending first-frame/trial-confirmation work in 3.5 explicit.
+- [ ] Reconcile reconnect, HA restart, lost replies, expired receipts and concurrent local recovery by reading device state first. Never silently replay Apply, restore an older document or overwrite a newer one. Require an explicit user decision for conflict resolution and local/HA authority transfer.
+- [ ] Keep a validated local document, previous-valid backup and compiled recovery path, plus the minimal local maintenance page. HA downtime must not prevent loading the cached UI; live readings/actions still depend on HA. Do not format SD, touch factory media or claim ordinary FatFs rename is power-loss atomic; carry the physical failure gates from 3.5 into release acceptance.
+- [ ] Verify the complete transfer path without enabling runtime dispatch or commanding household devices. Keep executable templates, arbitrary file paths and generic HA service-call definitions out of the configuration channel; a configuration deployment must not execute an action tile as a side effect.
+
+Exit gate: host fault tests and a separately authorized device test demonstrate
+candidate Save versus Apply, restart verification, recovery and conflict handling
+with preserved local preferences and no household commands.
+
+#### 3.8.5. Existing widget rollout and working-panel cutover
+
+- [ ] Connect the editor to each runtime family from 3.7 as it is accepted: room navigation/grouped and standalone sensors first, then lights, sockets, climate, humidifiers, Plant and attention. Reuse the same constructors for room tiles, reusable pages and detail/pop-up hosts; do not add an HA-specific LVGL renderer.
+- [ ] Replace per-entity compiled imports/bindings with bounded Native API runtime adapters, applying structural changes by controlled restart first. Keep states, availability and alarm decisions authoritative in HA. Runtime action dispatch remains gated by the sender/readiness/permission/callback contract in 3.6, independently of editor completion.
+- [ ] Import the current `panel.yaml` into an HA draft, compare stable identities/settings and generated-versus-runtime Linux captures, then migrate one accepted family/configuration at a time. Preserve local overrides by the rules in 3.8.1, action targets, offline startup and an explicit way back to the working generated configuration until parity and recovery are proven.
+- [ ] Demonstrate room/name/entity/binding/placement changes with only JSON Save/Apply and no firmware build for already supported families. Explain which changes still require firmware (hardware, new widget code/assets or expanded limits); never advertise complete runtime configuration while any selected family remains compiled-only.
+
+Exit gate: the working configuration has matching layout/state/targets, bounded
+repeated Apply/restart behavior and accepted runtime support for every selected
+family; activation is not inferred from the editor's ability to export JSON.
+
+#### 3.8.6. Acceptance, compatibility and distribution
+
+- [ ] Test integration setup/authentication/admin enforcement/unload, entity rename/removal, two HA instances, multiple browser tabs, stale sessions, network/HA restarts, interrupted transfer, malformed/oversized/unsupported JSON and unavailable/full/read-only/corrupt SD. Preserve the no-actuator default; real device commands require separate explicit authorization.
+- [ ] Measure internal free/minimum/largest block, PSRAM, main/HTTP stack minima, latency and retained-buffer cleanup with maximum supported JSON, simultaneous HA/native-web clients, repeated export/check/Save/Apply and long navigation/capture runs. Compare against the current deployed baseline; moving the editor does not remove ESP32 parser/LVGL costs or close existing reset/warning gates.
+- [ ] Check responsive HA editor layouts on mobile/desktop, light/dark themes, keyboard/touch access and actionable validation errors. Compare representative previews to actual shared-renderer captures; do not make the HA integration depend on an always-running Linux simulator merely to edit or deploy JSON.
+- [ ] Maintain a tested HA/ESPHome/schema/transport compatibility matrix with capability negotiation, explicit migrations and preserved recovery on downgrade. Reassess released official extension APIs before adding adapters; avoid silent SDK patches and promises about unspecified future versions.
+- [ ] Document installation, secure pairing, authority handover, draft versus candidate versus Apply, backup/recovery and removal of the integration without erasing the panel's cached configuration. Package the custom integration for manual installation first, then optional HACS distribution and multi-panel backup/deploy after single-panel acceptance; never auto-deploy to a fleet on reconnect.
+
+Release gate: host/browser acceptance plus separately authorized OTA/device,
+physical SD/power-loss and long memory/reconnect checks. Planning these stages
+does not authorize a firmware build, upload or real household action.
+
