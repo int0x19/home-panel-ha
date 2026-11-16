@@ -1,9 +1,9 @@
-# Action Entity Catalog
+# Entity Catalog
 
 The structured action form has a registry-backed entity picker. It uses public
 HA 2026.11 APIs and the existing authenticated connection; ESP32 does not gain a
-token, registry client or web editor. This is an action-family pilot, not an
-importer for lights, climate, sockets, sensors or Plant.
+token, registry client or web editor. Development 0.1.2 adds a separate numeric
+sensor scope. Lights, climate, sockets and Plant are not added to this catalog.
 
 ## Selection
 
@@ -24,10 +24,14 @@ importer for lights, climate, sockets, sensors or Plant.
 ## Boundary
 
 Administrator-only WS command `home_panel/config/entities` accepts `entry_id`,
-optional `domain`, `query` (at most 128 characters), `area_id`,
+optional `scope` (`action` by default or `sensor`), `domain`, `query` (at most
+128 characters), `area_id`,
 `include_inactive`, `offset` and `limit` (1..50, default 25). Empty area string
 means all; null means no effective area. Unknown fields/domains are rejected.
 The paired entry must exist, but need not be loaded or reachable.
+Action scope retains its four domains; sensor scope accepts only `sensor` or
+the empty all-domains filter. Cross-scope domain requests are rejected before
+registry access. Selecting a scope never changes device capabilities.
 
 Each explicit request returns a fresh sorted snapshot: bounded display names,
 entity/domain/area identifiers, availability and disabled/hidden flags. It does
@@ -42,6 +46,12 @@ picker independently guards request IDs and modal lifetime. A closed picker or
 old connection cannot accept a late selection. Search failures preserve local
 form fields, checkpoint revision and ESP32 validation freshness. Retry is always
 explicit. No storage, device I/O, service dispatch, SD write or Apply is involved.
+
+Sensor rows additionally contain `defaults` with only bounded textual `unit`
+and `device_class` from HA state attributes. Missing/malformed attributes and
+temporary unavailability do not clear configured fields. Selection fills only
+empty name/unit/class fields; custom values survive. Raw sensor readings and
+arbitrary attributes are not returned.
 
 ## Acceptance
 

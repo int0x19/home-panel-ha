@@ -17,7 +17,7 @@ from .coordinator import PanelConfigEntry, PanelCoordinator
 from .draft_storage import MAX_GENERATION, DraftError, DraftInvalid, prepare_record, repository
 from .draft_validation import ModelCheckBusy, ModelCheckInput, async_check_model
 from .draft_changes import async_summarize_changes
-from .entity_catalog import ACTION_DOMAINS, async_catalog
+from .entity_catalog import ACTION_DOMAINS, CATALOG_DOMAINS, async_catalog
 from ._core import IdentityMismatch, OutcomeUnknown, PanelError, PanelHTTPError, ProtocolError, Source
 from ._core import MAX_DOCUMENT_BYTES, RuntimeSnapshot
 from ._core import (
@@ -178,7 +178,8 @@ async def ws_status(hass: HomeAssistant, connection: websocket_api.ActiveConnect
 
 @websocket_api.websocket_command({
     "type": PREFIX + "entities", vol.Required("entry_id"): str,
-    vol.Optional("domain", default=""): vol.In(("", *ACTION_DOMAINS)),
+    vol.Optional("scope", default="action"): vol.In(CATALOG_DOMAINS),
+    vol.Optional("domain", default=""): vol.In(("", *ACTION_DOMAINS, "sensor")),
     vol.Optional("area_id", default=""): vol.Any(None, vol.All(str, vol.Length(max=128))),
     vol.Optional("query", default=""): vol.All(str, vol.Length(max=128)),
     vol.Optional("include_inactive", default=False): bool,
@@ -188,12 +189,15 @@ async def ws_status(hass: HomeAssistant, connection: websocket_api.ActiveConnect
 @websocket_api.require_admin
 @callback
 def ws_entities(hass: HomeAssistant, connection: websocket_api.ActiveConnection, msg: dict[str, Any]) -> None:
+    if msg["domain"] and msg["domain"] not in CATALOG_DOMAINS[msg["scope"]]:
+        connection.send_error(msg["id"], "invalid_format", "Domain is not available in this catalog")
+        return
     entry = hass.config_entries.async_get_entry(msg["entry_id"])
     if entry is None or entry.domain != DOMAIN or not entry.unique_id:
         connection.send_error(msg["id"], "panel_unavailable", "Panel configuration not found")
         return
     connection.send_result(msg["id"], async_catalog(hass, **{
-        key: msg[key] for key in ("domain", "area_id", "query", "include_inactive", "offset", "limit")}))
+        key: msg[key] for key in ("scope", "domain", "area_id", "query", "include_inactive", "offset", "limit")}))
 
 
 @websocket_api.websocket_command({"type": PREFIX + "import", vol.Required("entry_id"): str,

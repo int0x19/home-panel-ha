@@ -101,5 +101,6 @@ module.exports = async function testDraft(page, output, original) {
   await page.setViewportSize({width:1280, height:900});
   await page.evaluate(() => { harness.hass.locale.language = 'en'; harness.theme(false); harness.update(); });
   await require('./ha_frontend_persistence.cjs')(page, output, original);
+  await require('./ha_frontend_sensors.cjs')(page, output);
   await page.locator('#tab-original').click();
 };

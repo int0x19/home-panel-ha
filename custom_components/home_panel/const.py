@@ -1,7 +1,7 @@
 """Configuration constants for the Home Panel companion."""
 
 DOMAIN = "home_panel"
-CORE_VERSION = "0.1.1"
+CORE_VERSION = "0.1.2"
 CONF_URL = "url"
 CONF_ACCESS_KEY = "access_key"
 CONF_POLL_INTERVAL = "poll_interval"

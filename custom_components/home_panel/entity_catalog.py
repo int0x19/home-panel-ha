@@ -1,15 +1,18 @@
-"""Bounded, read-only action catalog from HA's public registry/state APIs."""
+"""Bounded, read-only action/sensor catalog from public registry/state APIs."""
+
+import re
 
 from homeassistant.const import STATE_UNAVAILABLE, STATE_UNKNOWN
 from homeassistant.core import HomeAssistant, callback
 from homeassistant.helpers import area_registry as ar, entity_registry as er
 
 ACTION_DOMAINS = ("script", "scene", "button", "input_button")
+CATALOG_DOMAINS = {"action": ACTION_DOMAINS, "sensor": ("sensor",)}
 MAX_AREAS = 256
 
 
 @callback
-def async_catalog(hass: HomeAssistant, *, domain: str = "", area_id: str | None = "",
+def async_catalog(hass: HomeAssistant, *, scope: str = "action", domain: str = "", area_id: str | None = "",
                   query: str = "", include_inactive: bool = False, offset: int = 0,
                   limit: int = 25) -> dict:
     """Return only display metadata, never arbitrary state attributes or services.
@@ -18,7 +21,7 @@ def async_catalog(hass: HomeAssistant, *, domain: str = "", area_id: str | None 
     request is a fresh snapshot, not a subscription or stable pagination cursor.
     """
     registry = er.async_get(hass)
-    domains = (domain,) if domain else ACTION_DOMAINS
+    domains = (domain,) if domain else CATALOG_DOMAINS[scope]
     states = {state.entity_id: state for state in hass.states.async_all(domains)}
     entries = {entry.entity_id: entry for entry in registry.entities.values()
                if entry.domain in domains}
@@ -51,8 +54,18 @@ def async_catalog(hass: HomeAssistant, *, domain: str = "", area_id: str | None 
                      "domain": entity_id.partition(".")[0], "area_id": effective_area,
                      "area_name": area.name[:256] if area else None,
                      "availability": availability, "disabled": disabled, "hidden": hidden})
+        if scope == "sensor":
+            defaults = {}
+            attributes = state.attributes if state else {}
+            unit, device_class = attributes.get("unit_of_measurement"), attributes.get("device_class")
+            if (isinstance(unit, str) and len(unit) <= 32 and
+                    not any(ord(c) < 32 or 127 <= ord(c) <= 159 or 0xD800 <= ord(c) <= 0xDFFF for c in unit)):
+                defaults["unit"] = unit
+            if isinstance(device_class, str) and re.fullmatch(r"[a-z][a-z0-9_]{0,63}", device_class):
+                defaults["device_class"] = device_class
+            rows[-1]["defaults"] = defaults
     area_list = sorted(areas.async_list_areas(), key=lambda area: area.id)
-    return {"version": 1, "scope": "action_entities", "domains": list(ACTION_DOMAINS),
+    return {"version": 1, "scope": scope + "_entities", "domains": list(CATALOG_DOMAINS[scope]),
             "areas": [{"id": area.id, "name": area.name[:256]} for area in area_list[:MAX_AREAS]],
             "areas_truncated": len(area_list) > MAX_AREAS,
             "items": rows, "total": total, "offset": offset,

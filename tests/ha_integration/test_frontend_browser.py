@@ -44,6 +44,10 @@ async def test_admin_frontend_in_chromium(hass, hass_client, hass_access_token, 
         hass.states.async_set(entity.entity_id, "unavailable" if key == "missing" else "unknown")
     for index in range(30):
         hass.states.async_set(f"button.extra_{index:02}", "unknown", {"friendly_name":f"Extra {index}"})
+    hass.states.async_set("sensor.bedroom_temperature", "25.1", {"friendly_name":"Bedroom temperature",
+        "unit_of_measurement":"\u00b0C", "device_class":"temperature"})
+    hass.states.async_set("sensor.bedroom_humidity", "unavailable", {"friendly_name":"Bedroom humidity",
+        "unit_of_measurement":"%", "device_class":"humidity"})
     unloaded = MockConfigEntry(domain=DOMAIN, title='<img src=x onerror="window.injected=1">',
                                unique_id="unloaded-preview", data={})
     unloaded.add_to_hass(hass)

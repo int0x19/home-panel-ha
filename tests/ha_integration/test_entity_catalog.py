@@ -99,7 +99,9 @@ async def test_bounded_paging_and_area_list(hass, catalog):
 
 @pytest.mark.parametrize("filters", [{"domain":"light"}, {"limit":51}, {"limit":0}, {"offset":-1},
                                     {"query":"x" * 129}, {"area_id":"x" * 129},
-                                    {"include_inactive":"yes"}, {"service":"script.turn_on"}])
+                                    {"include_inactive":"yes"}, {"service":"script.turn_on"},
+                                    {"scope":"light"}, {"scope":"sensor", "domain":"script"},
+                                    {"domain":"sensor"}])
 async def test_catalog_schema_rejects_before_query(catalog, filters):
     _, query = catalog
     response = await query(**filters)
@@ -117,3 +119,37 @@ async def test_unknown_entry_rejected_without_device_io(hass, catalog, panel):
         response = await query(entry_id=entry_id)
         assert response["error"]["code"] == "panel_unavailable"
     assert len(panel.calls) == before
+
+
+async def test_sensor_catalog_isolated_scope_and_allowlisted_defaults(hass, catalog, panel):
+    _, query = catalog
+    hass.states.async_set("sensor.temperature", "25.1", {"friendly_name":"Temperature",
+        "unit_of_measurement":"\u00b0C", "device_class":"temperature", "secret":"PRIVATE"})
+    hass.states.async_set("sensor.humidity", "unavailable", {"friendly_name":"Humidity",
+        "unit_of_measurement":"%", "device_class":"humidity", "secret":"PRIVATE"})
+    hass.states.async_set("scene.evening", "unknown", {"friendly_name":"Evening"})
+    hass.states.async_set("binary_sensor.private", "on", {"friendly_name":"PRIVATE"})
+    before = len(panel.calls)
+    data = (await query(scope="sensor"))["result"]
+    assert data["scope"] == "sensor_entities" and data["domains"] == ["sensor"]
+    assert [row["entity_id"] for row in data["items"]] == ["sensor.humidity", "sensor.temperature"]
+    assert data["items"][0]["defaults"] == {"unit":"%", "device_class":"humidity"}
+    assert data["items"][0]["availability"] == "unavailable"
+    assert data["items"][1]["defaults"] == {"unit":"\u00b0C", "device_class":"temperature"}
+    assert "25.1" not in json.dumps(data) and "PRIVATE" not in json.dumps(data)
+    assert (await query())["result"]["domains"] == ["script", "scene", "button", "input_button"]
+    assert (await query(scope="sensor", query="HUM", domain="sensor"))["result"]["total"] == 1
+    assert len(panel.calls) == before == 0
+
+
+@pytest.mark.parametrize("attributes", [
+    {"unit_of_measurement":None, "device_class":None},
+    {"unit_of_measurement":42, "device_class":False},
+    {"unit_of_measurement":"x" * 33, "device_class":"bad class"},
+    {"unit_of_measurement":"bad\nunit", "device_class":"\ud800"},
+])
+async def test_bad_sensor_metadata_is_not_used_for_defaults(hass, catalog, attributes):
+    _, query = catalog
+    hass.states.async_set("sensor.unknown", "unknown", attributes)
+    row = (await query(scope="sensor"))["result"]["items"][0]
+    assert row["defaults"] == {} and row["availability"] == "unknown"

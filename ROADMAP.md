@@ -4,7 +4,16 @@ The complete editor/integration backlog moved here from esp32panel at the
 repository split. Device firmware/native renderer acceptance stays in that repo;
 shared model/protocol work belongs to home-panel-core.
 
-## Current Checkpoint (2026-11-16)
+## Current Checkpoint (2026-11-17)
+
+Development 0.1.2 adds the [numeric-sensor/group draft slice](docs/HA_SENSOR_DRAFT.md)
+using core 0.1.2. Local acceptance passes 212 HA/browser tests, including actual
+registry metadata, independent Python checks, HA checkpoint restore and EN/RU
+light/dark forms at 320/390/1280px. The browser's exact edited JSON also renders
+through Linux C++/LVGL with mock readings and no overflow. Sensor/group controls
+require explicit capability features and widget inventory; the deployed
+action-only configuration profile remains gated. No managed write, firmware
+upload, physical-device command or 0.1.2 publication is implied.
 
 Release 0.1.1 is published for Marketplace with bundled core 0.1.1. CI passes,
 including 204 HA/browser tests on HA 2026.11.0. The flash-NVS compatibility fix
@@ -17,8 +26,9 @@ References to undeployed metadata in the dated 2026-11-07 progress notes below
 are historical; the read/check metadata path is now deployed. Broader asset,
 capacity, authority and managed-deployment acceptance gates remain open.
 Next, complete one HA-edited room with real temperature/humidity bindings,
-validated shared Linux rendering and guarded flash Save/Apply without a
-firmware rebuild. Start with the accepted read-only family; this plan does not
+accepted runtime readings capabilities and guarded flash Save/Apply without a
+firmware rebuild. The editing/shared-Linux part now passes; retain device
+capability, ownership and storage/recovery checks. This plan does not
 enable runtime action dispatch or waive deployment/recovery prerequisites.
 
 ### 3.8. HA integration and primary configuration editor
@@ -79,6 +89,7 @@ and the existing device API; no Save, Apply, firmware upload or household comman
 - [x] Add [unsaved-navigation protection](docs/HA_NAVIGATION.md) and installed-HA-shell acceptance (2026-11-07). Protect dirty models, unfinished fields and raw-check JSON through cancelable browser Navigation API departures, with same-origin link/unload fallback and an explicit old-browser warning. Keep the guard scoped to the mounted route, remove listeners on detach and avoid private HA imports/history patches or automatic checkpoint/device writes. Actual HA 2026.11 frontend/router/sidebar/icons and Chromium desktop/mobile checks cover cancellation, accepted discard/remount, Back, saved-versus-dirty state and cleanup. Document forced-teardown/non-cancelable traversal limits and the independently reproduced Chromium 153 repeated-programmatic-Forward issue; broader browser/companion acceptance remains in 3.8.6. Checkpoint Save/model checks still do not certify device deployment.
 - [x] Add the [action entity registry/state picker](docs/HA_ENTITY_CATALOG.md) (2026-11-07): admin-only offline-capable HA catalog, bounded pages, name/ID search, domain/effective-area filters, optional disabled/hidden entries, availability labels and manual-entry fallback. Selection preserves custom labels and only changes open fields; no room rearrangement, service call or device I/O. Actual HA 2026.11 WS/registry and EN/RU light/dark mobile/desktop browser acceptance cover cancellation, late replies and errors without invalidating checkpoints/device checks.
 - [ ] Extend registry/state selection with capability-aware defaults for other accepted families (light color modes, climate/humidifier modes/ranges, socket readings and Plant bindings). Let users choose what to import and override labels/grouping; HA areas may seed rooms but never silently rearrange them. Missing/null attributes or temporary unavailability must not erase existing settings.
+- [x] Add capability-gated numeric-sensor/group editing (2026-11-17) using the shared core transaction/fit module: entity/name/unit/class, standalone or named/unnamed group, stable IDs, reorder/move/delete, mixed action rows and atomic no-scroll rejection. A scoped HA sensor catalog offers bounded unit/class defaults without raw states or arbitrary attributes. HA model/checkpoint and browser-to-Linux JSON acceptance pass; device-family advertisement, binary-status editing and managed deployment remain pending.
 - [ ] Support room create/rename/reorder, Cyrillic names, stable widget identities, entity/attribute bindings, sensor groups and bundled icons. Start with pilot action tiles; expose additional deployable families only from the device capability handshake. Preserve unmodified unsupported sections on import and block deployment until required capabilities are present.
 - [ ] Reuse resolved template/theme/layout tokens and the existing row planners for the fixed no-scroll grid. Show capacity errors, explicit page placement and optional dedicated Actions pagination rather than shrinking device cards. Resolve templates into numeric JSON values on HA; new fonts/icons/renderer code still require firmware. Validate accurate previews through the shared Linux LVGL path, not a separate browser-only layout promise.
 - [x] Keep HA checkpoint history/change summaries and independent HA/device checks separate from SD-candidate Send/Apply. Retain canonical bounded JSON, required-feature declarations and exact originals; history restoration is a local unsaved edit, never an automatic rebind, save or deployment. Broader ownership/deployment acceptance remains in 3.8.4.

@@ -5,6 +5,11 @@ The canonical configuration-management contract now belongs to
 versioned logical model, canonical encoding, protocol/client and shared JS edits.
 This integration consumes its pinned wheel; it does not define another schema.
 
+Development 0.1.2 pins core 0.1.2 at its tested source commit and adds shared
+sensor/group draft transactions. It preserves the v1 model/protocol and all
+read/check guards. Editing is conditional on negotiated features and widget
+inventory, not a claim of device-family or managed-deployment acceptance.
+
 ## Prepared Capabilities Extension
 
 Compatibility update, 2026-11-16: the deployed panel now exposes valid factory

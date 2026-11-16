@@ -1,5 +1,9 @@
 # Room/Action Draft Editor
 
+Development 0.1.2 adds capability-gated numeric sensors and groups; see
+[sensor editing](HA_SENSOR_DRAFT.md). The action pilot history below does not
+imply that the deployed action-only API now accepts sensors.
+
 ## Scope
 
 The HA companion now includes a structured **Draft** tab for the action pilot.
@@ -72,8 +76,9 @@ protection. Only explicit checkpoints survive a fresh component/session.
 Unsupported widgets/unknown action settings remain read-only and are preserved
 on unrelated room edits/reordering. Mixed rooms are not assigned an invented
 action-only capacity. Room deletion/conversion and action placement are guarded
-when unsupported content is present. This is not yet an editor for light,
-sensor, socket, climate, humidifier, Plant or attention profiles.
+when unsupported content is present. Light, binary-status, socket, climate,
+humidifier, Plant and attention profiles remain read-only. Numeric sensors are
+editable only with the explicit reading features and widget inventory.
 
 The draft records its original source/digest. A changed source or capability
 set is shown rather than silently rebased. Capability changes block mutations
@@ -110,8 +115,9 @@ That original remains a separate exact artifact. The full Python model validator
 now lives in the independent `home-panel-core` package and is used by the host
 tools too, without requiring HA or reading templates during validation.
 Capability-aware selection for other widget families, ownership and candidate/Apply are pending.
-The installed device still needs the separately authorized prepared metadata
-firmware before real companion pairing; this stage does not bypass that gate.
+The deployed panel now supports metadata and flash read/check pairing (0.1.1
+compatibility fix). Runtime readings capabilities and managed deployment remain
+separate gates; the draft form does not advertise them for the device.
 
 ## Verification
 
