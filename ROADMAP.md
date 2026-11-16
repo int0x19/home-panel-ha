@@ -4,6 +4,23 @@ The complete editor/integration backlog moved here from esp32panel at the
 repository split. Device firmware/native renderer acceptance stays in that repo;
 shared model/protocol work belongs to home-panel-core.
 
+## Current Checkpoint (2026-11-16)
+
+Release 0.1.1 is published for Marketplace with bundled core 0.1.1. CI passes,
+including 204 HA/browser tests on HA 2026.11.0. The flash-NVS compatibility fix
+was checked against the running ESP32: factory identity/capabilities, exact
+active JSON export and validate-only work without SD. No Apply, managed write
+or household command was performed. Installed-HA setup after updating still
+needs user confirmation.
+
+References to undeployed metadata in the dated 2026-11-07 progress notes below
+are historical; the read/check metadata path is now deployed. Broader asset,
+capacity, authority and managed-deployment acceptance gates remain open.
+Next, complete one HA-edited room with real temperature/humidity bindings,
+validated shared Linux rendering and guarded flash Save/Apply without a
+firmware rebuild. Start with the accepted read-only family; this plan does not
+enable runtime action dispatch or waive deployment/recovery prerequisites.
+
 ### 3.8. HA integration and primary configuration editor
 
 Accepted direction, 2026-11-05: HA builds configuration from user-selected
