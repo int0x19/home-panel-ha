@@ -324,6 +324,34 @@ async def test_validation_without_sd_and_import_absent_files(ws, entry, panel):
     assert sum(method == "POST" for method, *_ in panel.calls) == 1
 
 
+async def test_flash_import_without_sd_uses_actual_configuration_storage(ws, entry, panel):
+    panel.state.update(storage="flash-nvs", storage_ready=True, sd_ready=False, loaded_source="flash-confirmed", storage_generation="62")
+    panel.state["features"].append("flash-maintenance.v1")
+    result = await command(ws, entry, "import", source="active")
+    assert result["success"]
+    data = result["result"]
+    assert data["document"].encode() == panel.documents["active"]
+    assert data["status"]["storage"] == "flash-nvs"
+    assert data["status"]["storage_ready"] and not data["status"]["sd_ready"]
+    assert not data["management_ready"] and not data["deployment_ready"]
+    assert {path for method, path, *_ in panel.calls if method == "POST"} == {
+        "/panel/runtime/api/export", "/panel/runtime/api/validate"}
+
+
+@pytest.mark.parametrize("field,value", [("storage_ready", False), ("storage_generation", "63")])
+async def test_flash_storage_change_during_import_requires_refresh(ws, entry, panel, field, value):
+    panel.state.update(storage="flash-nvs", storage_ready=True, sd_ready=False, loaded_source="flash-confirmed", storage_generation="62")
+    panel.state["features"].append("flash-maintenance.v1")
+    def change(method, suffix, result):
+        if suffix == "validate":
+            panel.state[field] = value
+        return result
+    panel.change = change
+    result = await command(ws, entry, "import", source="active")
+    assert result["error"]["code"] == "read_conflict"
+    assert entry.runtime_data.read_backend.requires_status_refresh
+
+
 async def test_identity_mismatch_cannot_import_or_validate(ws, entry, panel):
     panel.state["device_id"] = "esp32-efuse-020000000046"
     for operation, data in (("status", {}), ("import", {"source": "active"}), ("validate", {"document": "broken"})):

@@ -52,6 +52,7 @@ def _snapshot(entry: PanelConfigEntry, value: RuntimeSnapshot) -> dict[str, Any]
         "scope": "action_preview_only",
         "requires_status_refresh": entry.runtime_data.read_backend.requires_status_refresh,
         "status": {
+            "storage": state.storage, "storage_ready": state.storage_ready,
             "sd_ready": state.sd_ready, "busy": state.busy, "restarting": state.restarting,
             "loaded_source": state.loaded_source, "loaded_revision": state.loaded_revision,
             "max_bytes": state.max_bytes, "features": sorted(state.features),

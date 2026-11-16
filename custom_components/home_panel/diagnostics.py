@@ -15,6 +15,8 @@ async def async_get_config_entry_diagnostics(hass: HomeAssistant, entry: PanelCo
         "runtime_scope": "action_preview_only",
         "loaded_source": status.loaded_source,
         "loaded_revision": status.loaded_revision,
+        "storage": status.storage,
+        "storage_ready": status.storage_ready,
         "sd_ready": status.sd_ready,
         "busy": status.busy,
         "restarting": status.restarting,

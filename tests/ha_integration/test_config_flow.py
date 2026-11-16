@@ -150,3 +150,19 @@ async def test_pairing_without_sd_is_allowed_but_never_writable(hass, panel):
     assert not snapshot.status.sd_ready
     assert snapshot.status.busy
     assert not snapshot.capabilities.deployment_ready
+
+
+async def test_pairing_flash_confirmed_without_sd(hass, panel):
+    panel.state.update(storage="flash-nvs", storage_ready=True, sd_ready=False, loaded_source="flash-confirmed", storage_generation="62")
+    panel.state["features"].append("flash-maintenance.v1")
+    first = await start_user(hass)
+    result = await hass.config_entries.flow.async_configure(first["flow_id"], DATA)
+    await hass.async_block_till_done()
+    assert result["type"] is FlowResultType.CREATE_ENTRY
+    entry = result["result"]
+    assert entry.unique_id == DEVICE_ID
+    state = entry.runtime_data.data.status
+    assert state.loaded_source == "flash-confirmed"
+    assert state.storage_ready and not state.sd_ready
+    assert not entry.runtime_data.data.capabilities.management_ready
+    assert all(method == "GET" for method, *_ in panel.calls)

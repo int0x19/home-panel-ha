@@ -13,9 +13,13 @@ submodules or handwritten copies of those implementations here.
 
 ## Installation
 
+Version **0.1.1** fixes pairing/import with internal-flash firmware
+(`flash-confirmed`, `flash-nvs`). No SD card or firmware update is required for
+this compatibility fix. Upgrade/restart HA, then retry the panel setup.
+
 Requires **Home Assistant 2026.11.0 or newer**. Marketplace installs the ZIP
 attached to a [published release](https://github.com/int0x19/home-panel-ha/releases),
-not a source branch. Select **0.1.0**, not `main` or a commit hash.
+not a source branch. Select **0.1.1**, not `main` or a commit hash.
 See the [publication and installation checklist](docs/MARKETPLACE.md).
 
 ### Marketplace
@@ -29,11 +33,11 @@ not a Home Assistant access token. Standard ESPHome integration remains in use.
 
 ### Manual Installation
 
-Build or obtain a `home_panel_core-0.1.0-py3-none-any.whl`, then create the
+Build or obtain a `home_panel_core-0.1.1-py3-none-any.whl`, then create the
 offline-installable integration archive:
 
 ```sh
-python3 tools/build_release.py --wheel /path/to/home_panel_core-0.1.0-py3-none-any.whl
+python3 tools/build_release.py --wheel /path/to/home_panel_core-0.1.1-py3-none-any.whl
 ```
 
 Extract `dist/home-panel-ha.zip` into the Home Assistant configuration directory,
@@ -65,10 +69,10 @@ Use Python >=3.14.2 for HA 2026.11, separately from the firmware ESPHome environ
 ```sh
 python3.14 -m venv .venv
 .venv/bin/python -m pip install -r requirements-test.txt
-make core-install CORE_WHEEL=/path/to/home_panel_core-0.1.0-py3-none-any.whl
-make test CORE_WHEEL=/path/to/home_panel_core-0.1.0-py3-none-any.whl
-make release CORE_WHEEL=/path/to/home_panel_core-0.1.0-py3-none-any.whl
-make marketplace CORE_WHEEL=/path/to/home_panel_core-0.1.0-py3-none-any.whl
+make core-install CORE_WHEEL=/path/to/home_panel_core-0.1.1-py3-none-any.whl
+make test CORE_WHEEL=/path/to/home_panel_core-0.1.1-py3-none-any.whl
+make release CORE_WHEEL=/path/to/home_panel_core-0.1.1-py3-none-any.whl
+make marketplace CORE_WHEEL=/path/to/home_panel_core-0.1.1-py3-none-any.whl
 ```
 
 The tests use actual HA 2026.11 fixtures, synthetic transport and temporary
@@ -82,7 +86,7 @@ Chromium. The same path is available locally with Node >=20:
 ```sh
 npm ci
 npx playwright install --with-deps chromium
-HA_BROWSER_MANAGED_PLAYWRIGHT=1 make test CORE_WHEEL=/path/to/home_panel_core-0.1.0-py3-none-any.whl
+HA_BROWSER_MANAGED_PLAYWRIGHT=1 make test CORE_WHEEL=/path/to/home_panel_core-0.1.1-py3-none-any.whl
 ```
 
 After installing npm dependencies, use this managed-browser mode; the distro

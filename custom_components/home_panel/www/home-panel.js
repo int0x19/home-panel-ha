@@ -8,7 +8,9 @@ const words = {
     menu: "Open sidebar", reload: "Reload panels", admin: "Administrator access required",
     empty: "No panels configured", unavailable: "Metadata unavailable", offline: "HA disconnected",
     stale: "Status refresh required", loading: "Loading", ready: "Available", busy: "Busy",
-    sd: "Configuration SD", present: "Ready", absent: "Unavailable", loaded: "Loaded configuration",
+    sd: "Configuration storage", present: "Ready", absent: "Unavailable", loaded: "Loaded configuration",
+    "sd-files": "SD", "flash-nvs": "Flash", "flash-confirmed": "Confirmed flash",
+    "flash-previous": "Previous flash", "flash-trial": "Trial flash",
     revision: "Revision", limit: "JSON byte limit", authority: "Authority", unmanaged: "Unmanaged",
     managed: "HA-managed", scope: "Action preview", deployment: "Deployment unavailable",
     source: "Source", active: "Active", candidate: "Candidate", backup: "Backup", builtin: "Builtin",
@@ -35,7 +37,9 @@ const words = {
     menu: "Открыть меню", reload: "Обновить список", admin: "Требуются права администратора",
     empty: "Панели не настроены", unavailable: "Метаданные недоступны", offline: "Нет соединения с HA",
     stale: "Нужно обновить статус", loading: "Загрузка", ready: "Доступна", busy: "Занято",
-    sd: "SD конфигурации", present: "Готова", absent: "Недоступна", loaded: "Загружена конфигурация",
+    sd: "Хранилище конфигурации", present: "Готово", absent: "Недоступно", loaded: "Загружена конфигурация",
+    "sd-files": "SD", "flash-nvs": "Flash", "flash-confirmed": "Подтверждённая flash",
+    "flash-previous": "Предыдущая flash", "flash-trial": "Пробная flash",
     revision: "Ревизия", limit: "Лимит JSON, байт", authority: "Управление", unmanaged: "Локальное",
     managed: "Через HA", scope: "Превью действий", deployment: "Применение недоступно",
     source: "Источник", active: "Активный", candidate: "Кандидат", backup: "Резервный", builtin: "Встроенная",
@@ -475,7 +479,7 @@ class HomePanelConfig extends HTMLElement {
 
   async _import(source) {
     const file = this._status?.status.files[source];
-    if (!this._canJob || !file?.valid || !this._status.status.sd_ready) return;
+    if (!this._canJob || !file?.valid || !this._status.status.storage_ready) return;
     await this._request("import", {entry_id: this._entry, source}, result => {
       this._acceptStatus(result);
       this._original = result;
@@ -572,7 +576,7 @@ class HomePanelConfig extends HTMLElement {
       const caps = this._status.capabilities;
       this.$("loaded").textContent = this.t(state.loaded_source);
       this.$("revision").textContent = state.loaded_revision;
-      this.$("sd").textContent = this.t(state.sd_ready ? "present" : "absent");
+      this.$("sd").textContent = `${this.t(state.storage)}: ${this.t(state.storage_ready ? "present" : "absent")}`;
       this.$("limit").textContent = state.max_bytes;
       this.$("authority").textContent = this.t(this._status.authority.mode === "unmanaged" ? "unmanaged" : "managed");
       this.$("widgets").textContent = caps.widget_types.join(", ");
@@ -582,7 +586,7 @@ class HomePanelConfig extends HTMLElement {
         row.querySelector(".file-bytes").textContent = file.present ? file.bytes : "-";
         row.querySelector(".file-bytes").dataset.unit = this.t("bytes");
         row.querySelector(".file-state").textContent = this.t(!file.present ? "missing" : file.valid ? "valid" : "invalid");
-        row.querySelector("button").disabled = !this._canJob || !file.valid || !state.sd_ready;
+        row.querySelector("button").disabled = !this._canJob || !file.valid || !state.storage_ready;
         row.querySelector("button").setAttribute("aria-label", `${this.t("import")} ${this.t(row.dataset.source)}`);
       }
       this.$("limitsNote").textContent = [!caps.limits_measured_on_device && this.t("unmeasured"), !caps.assets_inventory_complete && this.t("incomplete")].filter(Boolean).join(" · ");
