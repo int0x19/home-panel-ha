@@ -6,3 +6,4 @@ dist/
 .coverage*
 .pytest_cache/
 custom_components/home_panel/_vendor/
+node_modules/

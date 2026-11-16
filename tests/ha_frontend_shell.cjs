@@ -12,7 +12,8 @@ assert.match(origin, /^http:\/\/127\.0\.0\.1:\d+$/);
 const output = path.resolve('build/ha-frontend');
 fs.mkdirSync(output, {recursive:true});
 (async () => {
-  const browser = await chromium.launch({executablePath:'/usr/bin/chromium', headless:true, args:['--no-sandbox']});
+  const executablePath = process.env.HA_BROWSER_MANAGED_PLAYWRIGHT === '1' ? undefined : '/usr/bin/chromium';
+  const browser = await chromium.launch({executablePath, headless:true, args:['--no-sandbox']});
   const context = await browser.newContext({viewport:{width:1280,height:900}});
   const page = await context.newPage(), errors = [], posts = [], unknown = [], actions = [];
   page.on('websocket', socket => {

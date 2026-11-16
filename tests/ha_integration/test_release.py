@@ -106,6 +106,7 @@ def test_publication_metadata_and_core_source_pin():
     hacs = json.loads((ROOT / "hacs.json").read_text())
     core = json.loads((ROOT / "core-source.json").read_text())
     assert manifest["codeowners"] == ["@int0x19"]
+    assert "http" in manifest["after_dependencies"]
     assert manifest["issue_tracker"].endswith("/home-panel-ha/issues")
     assert hacs["zip_release"] is True and hacs["hide_default_branch"] is True
     assert hacs["filename"] == "home_panel.zip"

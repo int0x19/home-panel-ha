@@ -60,7 +60,13 @@ jobs:
           python -m pip wheel --no-deps --no-build-isolation --wheel-dir dist/core ./build/core-source
           python -m pip install --no-deps dist/core/*.whl
           python -m pip install -r requirements-test.txt
+      - name: Install pinned browser test tools
+        run: |
+          npm ci
+          npx playwright install --with-deps chromium
       - name: Test source and offline installation layouts
+        env:
+          HA_BROWSER_MANAGED_PLAYWRIGHT: '1'
         run: |
           export HOME_PANEL_CORE_WHEEL="$(find "$PWD/dist/core" -name '*.whl')"
           python -m pytest -c tests/ha_integration/pytest.ini tests/ha_integration

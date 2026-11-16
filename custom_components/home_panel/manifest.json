@@ -1,7 +1,7 @@
 {
   "domain": "home_panel",
   "name": "Home Panel Configuration",
-  "after_dependencies": ["frontend"],
+  "after_dependencies": ["frontend", "http"],
   "codeowners": ["@int0x19"],
   "config_flow": true,
   "documentation": "https://github.com/int0x19/home-panel-ha",

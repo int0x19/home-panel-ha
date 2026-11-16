@@ -16,9 +16,10 @@ from custom_components.home_panel.const import CONF_ACCESS_KEY, CONF_URL, DOMAIN
 from support import DEVICE_ID, TOKEN, metadata
 
 ROOT = Path(__file__).resolve().parents[2]
+MANAGED_BROWSER = os.environ.get("HA_BROWSER_MANAGED_PLAYWRIGHT") == "1"
 
 
-@pytest.mark.skipif(not shutil.which("node") or not Path("/usr/bin/chromium").exists(),
+@pytest.mark.skipif(not shutil.which("node") or (not MANAGED_BROWSER and not Path("/usr/bin/chromium").exists()),
                     reason="Node, distro Playwright and Chromium required for browser acceptance")
 async def test_admin_frontend_in_chromium(hass, hass_client, hass_access_token, panel):
     assert await async_setup_component(hass, "frontend", {})
@@ -55,7 +56,8 @@ async def test_admin_frontend_in_chromium(hass, hass_client, hass_access_token, 
         "node", str(ROOT / "tests/ha_frontend_web.cjs"), cwd=ROOT,
         env={**os.environ, "HA_BROWSER_ORIGIN": str(client.make_url("/")).rstrip("/"),
              "HA_BROWSER_TOKEN": hass_access_token, "HA_BROWSER_ENTRY": entry.entry_id,
-             "HA_BROWSER_UNLOADED": unloaded.entry_id, "PLANT_SETTINGS_DISTRO_PLAYWRIGHT": "1"},
+             "HA_BROWSER_UNLOADED": unloaded.entry_id,
+             "PLANT_SETTINGS_DISTRO_PLAYWRIGHT": "0" if MANAGED_BROWSER else "1"},
         stdout=asyncio.subprocess.PIPE, stderr=asyncio.subprocess.STDOUT)
     try:
         stdout, _ = await asyncio.wait_for(process.communicate(), 220)

@@ -1,0 +1,10 @@
+{
+  "name": "home-panel-ha-browser-tests",
+  "private": true,
+  "engines": {
+    "node": ">=20"
+  },
+  "devDependencies": {
+    "playwright": "1.65.1"
+  }
+}

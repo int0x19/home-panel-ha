@@ -13,13 +13,14 @@ submodules or handwritten copies of those implementations here.
 
 ## Installation
 
-Requires **Home Assistant 2026.11.0 or newer**. Marketplace packaging is prepared
-locally; it becomes installable after the owner publishes a GitHub release.
+Requires **Home Assistant 2026.11.0 or newer**. Marketplace installs the ZIP
+attached to a [published release](https://github.com/int0x19/home-panel-ha/releases),
+not a source branch. Select **0.1.0**, not `main` or a commit hash.
 See the [publication and installation checklist](docs/MARKETPLACE.md).
 
 ### Marketplace
 
-Once published, open [Home Panel in your Marketplace](https://my.home-assistant.io/redirect/marketplace_repository/?owner=int0x19&repository=home-panel-ha&category=integration),
+Open [Home Panel in your Marketplace](https://my.home-assistant.io/redirect/marketplace_repository/?owner=int0x19&repository=home-panel-ha&category=integration),
 add the custom repository and install **Home Panel Configuration**. Only
 `home-panel-ha` is installed here: core is included, firmware stays on ESP32.
 Restart HA when requested, then add **Home Panel Configuration** in Devices &
@@ -52,8 +53,8 @@ extractable `home-panel-ha.zip`. It extracts into the component folder itself;
 our builder supports both layouts and bundles the same pinned core in each.
 An unbuilt default branch is not a supported production installation.
 
-No public repository, release or catalog submission has been created by this
-preparation. Pairing requires firmware exposing the negotiated identity and
+The GitHub repository is public; a custom repository can be installed without
+waiting for catalog inclusion. Pairing requires firmware exposing the negotiated identity and
 capabilities contract; merely installing the integration does not add firmware
 features or enable device writes. See [compatibility](docs/CORE_CONTRACT.md).
 
@@ -74,6 +75,18 @@ The tests use actual HA 2026.11 fixtures, synthetic transport and temporary
 storage. Browser acceptance additionally needs Node, distro Playwright and
 `/usr/bin/chromium`; it skips if those optional tools are absent. No real HA,
 ESP32, household command or physical SD write is involved.
+
+GitHub CI uses the npm-locked Playwright/browser rather than a runner's system
+Chromium. The same path is available locally with Node >=20:
+
+```sh
+npm ci
+npx playwright install --with-deps chromium
+HA_BROWSER_MANAGED_PLAYWRIGHT=1 make test CORE_WHEEL=/path/to/home_panel_core-0.1.0-py3-none-any.whl
+```
+
+After installing npm dependencies, use this managed-browser mode; the distro
+compatibility workaround is only for the pre-existing Debian test environment.
 
 The shared JS asset is served from the installed/bundled core using HA's static
 path API. It is not duplicated in `www`. Source and bundled release must both
@@ -125,9 +138,9 @@ No ESP32 firmware, physical SD or household action is involved.
 Marketplace preparation acceptance (2026-11-16): **200 tests pass** on HA
 2026.11.0, including source/browser checks, deterministic manual/Marketplace
 archives, bundled-only imports and both license copies. Five upstream
-deprecation warnings remain. Remote hassfest/HACS checks and an actual
-Marketplace installation still require the GitHub repositories and release;
-these have not been published or tested against a real HA installation here.
+deprecation warnings remain. Remote hassfest/HACS checks run in GitHub Actions;
+a release is only installable after its ZIP assets are published. Local tests
+are not a claim of successful installation in a user's running HA instance.
 
 ## License
 
