@@ -1,6 +1,7 @@
 """Release artifacts must carry their exact dependency and need no source tree."""
 
 from importlib.util import module_from_spec, spec_from_file_location
+import json
 import os
 from pathlib import Path
 import subprocess
@@ -23,15 +24,25 @@ def wheel():
     return Path(value)
 
 
-def test_deterministic_bundle_contains_core_and_shared_asset(wheel, tmp_path):
+@pytest.mark.parametrize("layout", ["manual", "marketplace"])
+def test_deterministic_bundle_contains_core_and_shared_asset(wheel, tmp_path, layout):
     first, second = tmp_path / "first.zip", tmp_path / "second.zip"
-    receipt = builder.build_release(wheel, first)
+    receipt = builder.build_release(wheel, first, layout=layout)
     assert receipt["core_version"] == "0.1.0"
-    builder.build_release(wheel, second)
+    builder.build_release(wheel, second, layout=layout)
     assert first.read_bytes() == second.read_bytes()
     with zipfile.ZipFile(first) as archive, zipfile.ZipFile(wheel) as source:
-        target = "custom_components/home_panel/_vendor/home_panel_core/assets/runtime-draft.mjs"
+        root = "custom_components/home_panel/" if layout == "manual" else ""
+        target = root + "_vendor/home_panel_core/assets/runtime-draft.mjs"
         assert archive.read(target) == source.read("home_panel_core/assets/runtime-draft.mjs")
+        assert json.loads(archive.read(root + "manifest.json"))["domain"] == "home_panel"
+        assert json.loads(archive.read(root + "core-release.json")) == receipt
+        assert archive.read(root + "brand/icon.png").startswith(b"\x89PNG\r\n\x1a\n")
+        assert b"Apache License" in archive.read(root + "LICENSE")
+        core_license = root + "_vendor/home_panel_core-0.1.0.dist-info/licenses/LICENSE"
+        assert b"Apache License" in archive.read(core_license)
+        if layout == "marketplace":
+            assert not any(name.startswith("custom_components/") for name in archive.namelist())
         assert not any("__pycache__" in name or name.endswith("secrets.yaml") for name in archive.namelist())
 
 
@@ -49,10 +60,14 @@ def test_reject_incompatible_or_unsafe_wheel_without_output(tmp_path, case):
     assert not output.exists()
 
 
-def test_release_import_does_not_use_installed_core_or_sibling_checkout(wheel, tmp_path):
+@pytest.mark.parametrize("layout", ["manual", "marketplace"])
+def test_release_import_does_not_use_installed_core_or_sibling_checkout(wheel, tmp_path, layout):
     archive = tmp_path / "release.zip"
-    builder.build_release(wheel, archive)
-    with zipfile.ZipFile(archive) as bundle: bundle.extractall(tmp_path / "ha")
+    builder.build_release(wheel, archive, layout=layout)
+    destination = tmp_path / "ha"
+    if layout == "marketplace":
+        destination /= "custom_components/home_panel"
+    with zipfile.ZipFile(archive) as bundle: bundle.extractall(destination)
     code = """
 import importlib.abc, pathlib, sys
 class BlockStandalone(importlib.abc.MetaPathFinder):
@@ -84,3 +99,24 @@ def test_wrong_bundled_version_never_falls_back_to_installed_core(wheel, tmp_pat
     result = subprocess.run([sys.executable, "-I", "-c", code, str(tmp_path / "ha")], cwd=tmp_path,
                             capture_output=True, text=True, timeout=30)
     assert result.returncode != 0 and "requires home-panel-core==0.1.0" in result.stderr
+
+
+def test_publication_metadata_and_core_source_pin():
+    manifest = json.loads((builder.COMPONENT / "manifest.json").read_text())
+    hacs = json.loads((ROOT / "hacs.json").read_text())
+    core = json.loads((ROOT / "core-source.json").read_text())
+    assert manifest["codeowners"] == ["@int0x19"]
+    assert manifest["issue_tracker"].endswith("/home-panel-ha/issues")
+    assert hacs["zip_release"] is True and hacs["hide_default_branch"] is True
+    assert hacs["filename"] == "home_panel.zip"
+    assert hacs["homeassistant"] == "2026.11.0"
+    assert core["version"] == "0.1.0"
+    assert core["repository"] == "int0x19/home-panel-core"
+    assert len(core["revision"]) == 40 and set(core["revision"]) <= set("0123456789abcdef")
+
+
+def test_unknown_layout_fails_before_creating_an_archive(tmp_path):
+    output = tmp_path / "invalid.zip"
+    with pytest.raises(ValueError, match="layout"):
+        builder.build_release(tmp_path / "missing.whl", output, layout="other")
+    assert not output.exists()

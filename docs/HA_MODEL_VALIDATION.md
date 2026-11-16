@@ -72,6 +72,8 @@ false. A successful HA result is not a device acceptance certificate.
 One tracked executor check per entry is allowed; another returns
 `model_check_busy`, without a queued second document. Disconnecting/cancelling
 the waiter does not release the slot before its executor work actually ends.
+The [structural change summary](HA_DRAFT_CHANGES.md) shares this same slot,
+so comparison and validation cannot start parallel workers for one entry.
 Removed entries discard late results. There is no automatic check/retry or
 persisted validation history. Browser replies are tied to the selected entry,
 component epoch and draft version, and edits mark an earlier report previous.

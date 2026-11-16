@@ -20,7 +20,9 @@ const words = {
     checkedEarlier: "Previous validation", validationFailed: "Validation unavailable", checking: "Checking",
     notChecked: "Not checked", inputLimit: "Input exceeds the byte limit", badFile: "Invalid UTF-8 file",
     tooLarge: "File exceeds the byte limit", discard: "Discard", cancel: "Cancel",
-    discardTitle: "Discard local changes?", noStatus: "Select a panel to load metadata",
+    discardTitle: "Discard local changes?", leaveTitle: "Leave Home Panel and discard unsaved changes?",
+    navigationLimited: "This browser cannot protect unsaved changes when using Back/Forward. Save in HA before leaving.",
+    noStatus: "Select a panel to load metadata",
     schema: "Schema", widgets: "Widget types", capabilities: "Capabilities", unmeasured: "Limits not measured on device",
     incomplete: "Asset inventory incomplete", sourceStatus: "File status", setup_retry: "Setup retry",
     setup_error: "Setup error", not_loaded: "Not loaded", migration_error: "Migration error",
@@ -45,7 +47,9 @@ const words = {
     checkedEarlier: "Предыдущая проверка", validationFailed: "Проверка недоступна", checking: "Проверка",
     notChecked: "Не проверено", inputLimit: "Превышен лимит байт", badFile: "Некорректный UTF-8",
     tooLarge: "Файл превышает лимит байт", discard: "Отбросить", cancel: "Отмена",
-    discardTitle: "Отбросить локальные изменения?", noStatus: "Выберите панель для чтения метаданных",
+    discardTitle: "Отбросить локальные изменения?", leaveTitle: "Покинуть Home Panel и отбросить несохранённые изменения?",
+    navigationLimited: "Этот браузер не защищает несохранённые изменения при переходах Назад/Вперёд. Сохраните черновик в HA перед выходом.",
+    noStatus: "Выберите панель для чтения метаданных",
     schema: "Схема", widgets: "Типы виджетов", capabilities: "Возможности", unmeasured: "Лимиты не измерены на устройстве",
     incomplete: "Неполный набор ресурсов", sourceStatus: "Статус файла", setup_retry: "Повтор подключения",
     setup_error: "Ошибка подключения", not_loaded: "Не загружена", migration_error: "Ошибка миграции",
@@ -73,9 +77,10 @@ const errors = {
   panel_error: ["Panel request failed", "Ошибка запроса к панели"],
   draft_conflict: ['HA draft version conflict; local changes retained', 'Конфликт версии черновика HA; локальные правки сохранены'],
   draft_busy: ['HA draft storage is busy', 'Хранилище черновика HA занято'],
-  model_check_busy: ['HA model check is busy', 'Проверка модели в HA занята'],
+  model_check_busy: ['HA model processing is busy', 'Обработка модели в HA занята'],
   invalid_draft: ['Invalid or oversized HA draft', 'Некорректный черновик HA или превышен лимит'],
   draft_storage_error: ['HA draft storage unavailable; local changes retained', 'Хранилище черновика HA недоступно; локальные правки сохранены'],
+  draft_history_missing: ['HA history version unavailable; reload the checkpoint', 'Версия истории HA недоступна; загрузите текущий черновик'],
 };
 
 class HomePanelConfig extends HTMLElement {
@@ -101,7 +106,19 @@ class HomePanelConfig extends HTMLElement {
     this._errorCode = "";
     this._notice = "";
     this._beforeUnload = event => {
-      if (this._input || this.$('draft-editor')?.dirty) { event.preventDefault(); event.returnValue = ""; }
+      if (this._hasLocalChanges) { event.preventDefault(); event.returnValue = ""; }
+    };
+    this._guardNavigation = event => {
+      if (event.cancelable && event.destination.sameDocument && !this._confirmDeparture(event.destination.url)) event.preventDefault();
+    };
+    this._guardLink = event => {
+      if (this._navigation || event.defaultPrevented || event.button !== 0 || event.ctrlKey || event.metaKey || event.shiftKey || event.altKey) return;
+      const anchor = event.composedPath().find(node => node.localName === 'a' && node.hasAttribute('href'));
+      if (!anchor || anchor.hasAttribute('download') || (anchor.target && anchor.target !== '_self')) return;
+      const url = new URL(anchor.getAttribute('href'), document.baseURI);
+      if (url.origin !== location.origin || this._confirmDeparture(url.href)) return;
+      event.preventDefault();
+      event.stopImmediatePropagation();
     };
     this.shadowRoot.innerHTML = `
       <link rel="stylesheet" href="${new URL("./home-panel.css", import.meta.url)}">
@@ -119,6 +136,7 @@ class HomePanelConfig extends HTMLElement {
         </section>
         <div class="status-line" aria-live="polite"><span id="connection" class="badge"></span><span class="badge" data-text="scope"></span><span class="muted" data-text="deployment"></span></div>
         <p id="message" role="status" hidden></p>
+        <p id="navigation-warning" class="warning" role="status" data-text="navigationLimited" hidden></p>
         <section id="metadata" hidden>
           <dl class="facts">
             <div><dt data-text="loaded"></dt><dd id="loaded"></dd></div>
@@ -156,7 +174,7 @@ class HomePanelConfig extends HTMLElement {
           </div>
         </section>
       </main>
-      <dialog><form method="dialog"><h2 data-text="discardTitle"></h2><div class="dialog-actions"><button value="cancel" data-text="cancel" autofocus></button><button value="discard" class="danger" data-text="discard"></button></div></form></dialog>`;
+      <dialog id="discard-dialog"><form method="dialog"><h2 data-text="discardTitle"></h2><div class="dialog-actions"><button value="cancel" data-text="cancel" autofocus></button><button value="discard" class="danger" data-text="discard"></button></div></form></dialog>`;
     this.$("menu").onclick = () => this.dispatchEvent(new CustomEvent("hass-toggle-menu", {bubbles: true, composed: true}));
     this.$("reload").onclick = () => this._loadPanels();
     this.$("panel").onchange = event => this._select(event.target.value);
@@ -184,9 +202,13 @@ class HomePanelConfig extends HTMLElement {
     this.$('edit-original').onclick = () => this._editOriginal();
     this.$('draft-editor').addEventListener('draft-validate', event => this._validateDraft(event.detail));
     this.$('draft-editor').addEventListener('draft-model-check', event => this._checkModel(event.detail));
+    this.$('draft-editor').addEventListener('draft-changes', event => this._compareDraft(event.detail));
+    this.$('draft-editor').addEventListener('draft-entities', event => this._queryEntities(event.detail));
     this.$('draft-editor').addEventListener('draft-storage-save', event => this._saveHADraft(event.detail));
     this.$('draft-editor').addEventListener('draft-storage-load', () => this._loadHADraft());
     this.$('draft-editor').addEventListener('draft-storage-delete', event => this._deleteHADraft(event.detail));
+    this.$('draft-editor').addEventListener('draft-storage-history', event => this._restoreHADraft(event.detail));
+    this.$('draft-editor').addEventListener('draft-changed', () => this._updateNavigationWarning());
     this.shadowRoot.querySelectorAll("[data-import]").forEach(button => {
       button.onclick = () => this._import(button.dataset.import);
     });
@@ -197,14 +219,34 @@ class HomePanelConfig extends HTMLElement {
   get _admin() { return this._hass?.user?.is_admin === true; }
   get _online() { return this._hass?.connection?.connected !== false; }
   get _selected() { return this._entries.find(entry => entry.entry_id === this._entry); }
+  get _hasLocalChanges() {
+    return this.isConnected && location.pathname === this._guardPath && this._admin && Boolean(this._input || this.$('draft-editor').dirty);
+  }
+
+  _confirmDeparture(destination) {
+    if (!this._hasLocalChanges || new URL(destination).pathname === location.pathname) return true;
+    // Synchronous confirmation lets the original HA navigation continue, without replay or history patches.
+    return window.confirm(this.t('leaveTitle'));
+  }
+
+  _updateNavigationWarning() {
+    this.$('navigation-warning').hidden = Boolean(this._navigation) || !this._hasLocalChanges;
+  }
 
   connectedCallback() {
+    this._guardPath = location.pathname;
+    this._navigation = window.navigation;
+    this._navigation?.addEventListener('navigate', this._guardNavigation);
+    window.addEventListener('click', this._guardLink, true);
     window.addEventListener("beforeunload", this._beforeUnload);
     this._update();
     if (this._admin && this._online && !this._attempted) this._loadPanels();
   }
 
   disconnectedCallback() {
+    this._navigation?.removeEventListener('navigate', this._guardNavigation);
+    this._navigation = null;
+    window.removeEventListener('click', this._guardLink, true);
     window.removeEventListener("beforeunload", this._beforeUnload);
     this._reset();
     this._loaded = false;
@@ -261,7 +303,7 @@ class HomePanelConfig extends HTMLElement {
     if (this.shadowRoot.querySelector("dialog").open) this.shadowRoot.querySelector("dialog").close("cancel");
   }
 
-  async _request(operation, data, accept) {
+  async _request(operation, data, accept, reject = () => {}) {
     if (!this.isConnected || !this._admin || !this._online || this._busy) return;
     const epoch = this._epoch;
     this._busy = true;
@@ -274,8 +316,9 @@ class HomePanelConfig extends HTMLElement {
     } catch (error) {
       if (epoch !== this._epoch || !this.isConnected || !this._admin) return;
       this._errorCode = Object.hasOwn(errors, error?.code) ? error.code : "cannot_connect";
+      reject(this._errorCode);
       if (operation.startsWith('draft_')) this.$('draft-editor').invalidateStorage(this._errorCode);
-      else if (operation !== "panels" && operation !== 'model_check') {
+      else if (!['panels', 'model_check', 'model_changes', 'entities'].includes(operation)) {
         this._fresh = false;
         this._validationFresh = false;
         this._needsRefresh = true;
@@ -286,6 +329,12 @@ class HomePanelConfig extends HTMLElement {
         this._update();
       }
     }
+  }
+
+  async _queryEntities(detail) {
+    const draft = this.$('draft-editor');
+    await this._request('entities', {entry_id:this._entry, ...detail.query},
+      result => draft.acceptEntities(result, detail.request), () => draft.rejectEntities(detail.request));
   }
 
   async _loadPanels() {
@@ -369,6 +418,13 @@ class HomePanelConfig extends HTMLElement {
     });
   }
 
+  async _compareDraft(detail) {
+    const draft = this.$('draft-editor');
+    if (!this._entry || detail.version !== draft.version) return;
+    await this._request('model_changes', {entry_id:this._entry, base:detail.base, document:detail.document},
+      result => draft.acceptChanges(result, detail), () => draft.rejectChanges(detail));
+  }
+
   async _loadHADraft() {
     if (!this._entry) return;
     await this._request('draft_get', {entry_id:this._entry}, result => {
@@ -392,6 +448,19 @@ class HomePanelConfig extends HTMLElement {
   async _deleteHADraft(detail) {
     if (!this._entry) return;
     await this._request('draft_delete', {entry_id:this._entry, ...detail}, result => this.$('draft-editor').acceptStored(result, true));
+  }
+
+  async _restoreHADraft(detail) {
+    const draft = this.$('draft-editor');
+    if (!this._entry || detail.version !== draft.version) return;
+    const {version, ...payload} = detail;
+    await this._request('draft_history_get', {entry_id:this._entry, ...payload}, result => {
+      if (!draft.restoreHistory(result, detail)) return;
+      const {original:origin, capabilities} = result.record;
+      this._original = {...origin, capabilities, bytes:new TextEncoder().encode(origin.document).length, validation:null};
+      this.$('document').textContent = origin.document; this.$('sha').textContent = origin.sha256;
+      this._setTab('editor');
+    });
   }
 
   async _statusRequest() {
@@ -552,9 +621,12 @@ class HomePanelConfig extends HTMLElement {
     this.$("originalReport").className = "report " + (this._fresh && this._original?.validation ? "success" : "muted");
     const draft = this.$('draft-editor');
     draft.context = {language:this._lang, capabilities:this._status?.capabilities, states:this._hass?.states,
+      catalogKey:this._epoch,
+      revisionHighWater:Math.max(this._status?.status.loaded_revision || 0, ...Object.values(this._status?.status.files || {}).map(file => file.revision || 0)),
       canValidate:this._canJob, fresh:this._fresh && !this._needsRefresh, busy:this._busy,
       storageOnline:this._admin && this._online && !!this._selected,
       sourceCurrent:!this._status || !this._fresh ? null : !draft.source || this._status.status.files[draft.source]?.sha256 === draft.sourceHash};
+    this._updateNavigationWarning();
   }
 }
 

@@ -9,6 +9,7 @@ import pytest
 from pytest_homeassistant.common import MockConfigEntry
 
 from homeassistant.components.http import StaticPathConfig
+from homeassistant.helpers import area_registry as ar, entity_registry as er
 from homeassistant.setup import async_setup_component
 
 from custom_components.home_panel.const import CONF_ACCESS_KEY, CONF_URL, DOMAIN
@@ -28,6 +29,20 @@ async def test_admin_frontend_in_chromium(hass, hass_client, hass_access_token, 
                             data={CONF_URL: "http://panel.test", CONF_ACCESS_KEY: TOKEN})
     entry.add_to_hass(hass)
     assert await hass.config_entries.async_setup(entry.entry_id)
+    areas, entities = ar.async_get(hass), er.async_get(hass)
+    bedroom, kitchen = areas.async_create("Спальня"), areas.async_create("Кухня")
+    for domain, key, name, area, extra in (
+        ("scene", "evening", "Вечер", bedroom, {}),
+        ("script", "good_night", "Ночь", kitchen, {}),
+        ("scene", "hidden", "Hidden", bedroom, {"hidden_by":er.RegistryEntryHider.USER}),
+        ("button", "missing", "Missing", bedroom, {}),
+    ):
+        entity = entities.async_get_or_create(domain, DOMAIN, key, suggested_object_id=key,
+                                              original_name=name, **extra)
+        entities.async_update_entity(entity.entity_id, area_id=area.id)
+        hass.states.async_set(entity.entity_id, "unavailable" if key == "missing" else "unknown")
+    for index in range(30):
+        hass.states.async_set(f"button.extra_{index:02}", "unknown", {"friendly_name":f"Extra {index}"})
     unloaded = MockConfigEntry(domain=DOMAIN, title='<img src=x onerror="window.injected=1">',
                                unique_id="unloaded-preview", data={})
     unloaded.add_to_hass(hass)
@@ -43,7 +58,7 @@ async def test_admin_frontend_in_chromium(hass, hass_client, hass_access_token, 
              "HA_BROWSER_UNLOADED": unloaded.entry_id, "PLANT_SETTINGS_DISTRO_PLAYWRIGHT": "1"},
         stdout=asyncio.subprocess.PIPE, stderr=asyncio.subprocess.STDOUT)
     try:
-        stdout, _ = await asyncio.wait_for(process.communicate(), 150)
+        stdout, _ = await asyncio.wait_for(process.communicate(), 220)
         assert process.returncode == 0, stdout.decode()
     finally:
         if process.returncode is None:

@@ -5,7 +5,8 @@
 This is local configuration storage in the HA companion, not a device candidate,
 Apply mechanism or replacement for ESPHome Native API. There is **one current
 checkpoint per paired config entry**, including its exact original artifact
-and capability snapshot. There is no history, automatic merge, autosave or
+and capability snapshot, plus up to three bounded [previous records](HA_DRAFT_HISTORY.md).
+There is no automatic merge, autosave or
 browser local/session storage. Working generated rooms and physical SD files
 are never modified by these commands.
 
@@ -21,7 +22,7 @@ not have to wait for an offline panel's HTTP timeout.
 
 ## Administrator API
 
-All three commands use the normal authenticated `hass.callWS` connection and
+All four commands use the normal authenticated `hass.callWS` connection and
 server-side `require_admin`. They accept an existing companion `entry_id`, never
 a filename, address, credential override or HA service. They perform **zero
 panel I/O** and do not require a loaded Native API/HTTP connection.
@@ -46,10 +47,15 @@ await hass.callWS({
 });
 ```
 
+The fourth command, `draft_history_get`, explicitly reads one archived record
+using the current observed checkpoint token. See [history](HA_DRAFT_HISTORY.md)
+for its metadata-only list, bounded record lookup and unsaved editor restoration.
+
 `draft_get` does not create a file. Every result contains:
 
 - `version: 1`, integer `generation` and opaque `revision` token.
 - `record: null`, or `{document, sha256, original, capabilities}`.
+- `saved_at`, `document_high_water`, bounded metadata-only `history` and `history_limits`.
 - `model_validated: false`, `deployment_ready: false`.
 
 Treat the revision token as opaque optimistic-concurrency data, not a credential
@@ -63,7 +69,8 @@ Save and Delete require the token from the observed checkpoint. A stale token
 returns `draft_conflict`; a concurrent in-flight write returns `draft_busy`
 without queuing a second write. Delete publishes a null-record tombstone with
 an incremented generation, preventing stale create/delete requests from becoming
-valid again. Removing the companion entry explicitly removes its own HA file;
+valid again. Delete clears history as well, while keeping the numeric model
+revision high-water mark. Removing the companion entry explicitly removes its own HA file;
 unload/reload does not. Other panels' checkpoints and device configuration are
 unaffected.
 
@@ -96,23 +103,28 @@ Unknown sections are not silently regenerated. A checkpoint whose model cannot
 be edited by the current action pilot falls back to raw checking rather than
 rewriting the file. Full shared-model checking is now a separate explicit
 [HA operation](HA_MODEL_VALIDATION.md), not a condition or certificate of Save.
-Migration policy, richer editor widget families, revision history and change
-summaries remain roadmap work.
+An explicit [change summary](HA_DRAFT_CHANGES.md) can now compare the local draft
+against the original or fresh observed checkpoint without writing storage.
+Bounded history and explicit local restoration are now available separately.
+Broader configuration migration and richer editor widget families remain roadmap work.
 
 ## Storage And Recovery
 
 Production uses HA's public `Store` APIs with a fixed owned key
-`home_panel.draft.<entry_id>`, version 1/minor 1, private permissions, atomic
+`home_panel.draft.<entry_id>`, version 2/minor 1, private permissions, atomic
 writes and serialization in the executor. The payload holds the pinned factory
-ID, generation, record and canonical checksum. API responses omit the factory
+ID, generation, current/archived records, timestamps, model-revision high-water
+mark and canonical checksum. API responses omit the factory
 ID, panel origin/key and native boot nonce. HA storage/backups remain sensitive
 configuration data; this is not encryption at rest or a scoped device credential.
 
 Before HA loads a file, an executor preflight bounds reads to 512 KiB and checks
-the exact storage version/envelope. Corrupt, oversized, wrong-identity or future
+the exact storage version/envelope. Valid legacy 1.1 files are read without
+rewriting; only explicit Save/Delete upgrades them. Corrupt, oversized, wrong-identity or future
 records fail closed and remain untouched, without automatic migration,
 quarantine-as-empty, reset or overwrite. Loaded records also verify checksum
-and canonical content. An observed generation cannot move backwards; a missing
+and canonical content, including every archived record. Observed generation,
+storage version and high-water mark cannot move backwards; a missing
 previously populated file is not treated as a fresh empty draft in that owner.
 
 Save rechecks the current disk state before publication. HA 2026.11's `Store`
@@ -170,3 +182,7 @@ The loopback preview at `http://127.0.0.1:8775` only simulates checkpoint contro
 in that fixture page's memory. It has no real HA persistence, validation or device
 connection and labels that limitation explicitly. Real acceptance above uses HA
 Store on temporary disk, not this simulation.
+
+The [history extension](HA_DRAFT_HISTORY.md) adds read-only migration, count/byte/
+depth pruning, restart/revision protection and explicit unsaved restoration tests;
+the original checkpoint guarantees remain in force.

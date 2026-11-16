@@ -1,19 +1,12 @@
 """Explicit bounded host-model checks, never device validation or storage."""
 
-import asyncio
 from dataclasses import asdict
 import hashlib
 
 from homeassistant.core import HomeAssistant
 
-from .const import DOMAIN
 from ._core import DEFAULT_LIMITS, decode_document, validate_document
-
-DATA_KEY = DOMAIN + "_model_checks"
-
-
-class ModelCheckBusy(Exception):
-    """One model check is already running for this entry."""
+from .draft_jobs import DATA_KEY, ModelCheckBusy, async_model_job
 
 
 class ModelCheckInput(Exception):
@@ -43,22 +36,4 @@ def check_model(document: str) -> dict:
 
 
 async def async_check_model(hass: HomeAssistant, entry_id: str, document: str) -> dict:
-    tasks = hass.data.setdefault(DATA_KEY, {})
-    if entry_id in tasks:
-        raise ModelCheckBusy
-
-    async def run():
-        return await hass.async_add_executor_job(check_model, document)
-
-    task = hass.async_create_task(run(), "Home Panel shared model check")
-    tasks[entry_id] = task
-
-    def finished(completed):
-        if tasks.get(entry_id) is completed:
-            tasks.pop(entry_id)
-        if not completed.cancelled():
-            completed.exception()
-
-    task.add_done_callback(finished)
-    # A disconnected waiter must not permit an unbounded second executor job.
-    return await asyncio.shield(task)
+    return await async_model_job(hass, entry_id, check_model, document)

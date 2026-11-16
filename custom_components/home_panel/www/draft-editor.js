@@ -8,11 +8,24 @@ const labels = {
     export:'Export draft', reset:'Discard local draft', local:'Local draft', notChecked:'Not checked', previous:'Previous validation',
     saveHA:'Save in HA', loadHA:'Load HA draft', deleteHA:'Delete HA draft', savedHA:'Saved in HA', unsaved:'Unsaved',
     storageUnknown:'HA draft status unknown', conflict:'HA draft version conflict', discardLoad:'Replace local changes with the HA draft?',
-    confirmDeleteHA:'Delete the saved HA draft and local edits?', restoreInvalid:'Saved draft is not editable',
+    confirmDeleteHA:'Delete the saved HA draft, history and local edits?', restoreInvalid:'Saved draft is not editable',
+    history:'HA history', historyEmpty:'No earlier versions', openHistory:'Open as draft',
+    confirmHistory:'Replace the local draft with this version?', unknownTime:'Time unknown', bytes:'bytes',
     accepted:'Valid model', rejected:'Invalid model', newRoom:'New room', deleteRoom:'Delete room and its actions?',
     deleteAction:'Delete action?', discardFields:'Discard uncommitted fields?', discardDraft:'Discard local draft?',
     readOnly:'Read-only', pending:'Uncommitted fields', changedSource:'Source changed since draft creation',
     changedCaps:'Capabilities changed', offline:'Status refresh required', pages:'pages', tiles:'tiles',
+    changes:'Compare', compareWith:'Compare with', originalBase:'Imported original', savedBase:'Saved HA draft',
+    changeSummary:'Changes', noChanges:'No structural changes', changesTotal:'Total', changesShown:'Shown', previousChanges:'Previous comparison',
+    changesError:'Comparison unavailable', revision:'Revision', room_added:'Room added', room_removed:'Room removed',
+    room_changed:'Room changed', room_order:'Room order changed', widget_added:'Widget added', widget_removed:'Widget removed',
+    widget_moved:'Widget moved', widget_changed:'Widget changed', widget_order:'Widget order changed', section_changed:'Section changed',
+    panel:'Panel settings', style:'Appearance', requires:'Required features', views:'Reusable views', attention:'Attention',
+    groups:'Sensor groups', settings:'Settings', type:'Widget type', other:'Other fields',
+    chooseEntity:'Choose entity', search:'Search', area:'Area', domain:'Domain', all:'All', unassigned:'No area',
+    includeInactive:'Include disabled and hidden', disabled:'Disabled', hidden:'Hidden', unavailable:'Unavailable',
+    unknown:'Unknown', missingState:'No state', loading:'Loading', noEntities:'No matching entities', catalogError:'Entity search failed',
+    previousPage:'Previous page', nextPage:'Next page', areasTruncated:'Area list is limited; use search across all areas',
     geometry:'Invalid geometry', text:'Invalid or oversized name', entityError:'Invalid action entity',
     action_fields:'Unsupported action settings', capability:'Capability unavailable', room_limit:'Room limit reached',
     widget_limit:'Widget limit reached', room_full:'Room is full', page_limit:'Page limit reached', byte_limit:'JSON byte limit exceeded',
@@ -26,11 +39,24 @@ const labels = {
     export:'Экспорт черновика', reset:'Отбросить локальный черновик', local:'Локальный черновик', notChecked:'Не проверено', previous:'Предыдущая проверка',
     saveHA:'Сохранить в HA', loadHA:'Загрузить черновик HA', deleteHA:'Удалить черновик HA', savedHA:'Сохранён в HA', unsaved:'Не сохранён',
     storageUnknown:'Статус черновика HA неизвестен', conflict:'Конфликт версии черновика HA', discardLoad:'Заменить локальные изменения черновиком из HA?',
-    confirmDeleteHA:'Удалить сохранённый черновик HA и локальные правки?', restoreInvalid:'Сохранённый черновик недоступен для редактирования',
+    confirmDeleteHA:'Удалить сохранённый черновик HA, историю и локальные правки?', restoreInvalid:'Сохранённый черновик недоступен для редактирования',
+    history:'История HA', historyEmpty:'Предыдущих версий нет', openHistory:'Открыть как черновик',
+    confirmHistory:'Заменить локальный черновик этой версией?', unknownTime:'Время неизвестно', bytes:'байт',
     accepted:'Модель корректна', rejected:'Ошибка модели', newRoom:'Новая комната', deleteRoom:'Удалить комнату и её действия?',
     deleteAction:'Удалить действие?', discardFields:'Отбросить незавершённые поля?', discardDraft:'Отбросить локальный черновик?',
     readOnly:'Только чтение', pending:'Незавершённые поля', changedSource:'Источник изменился после создания черновика',
     changedCaps:'Возможности панели изменились', offline:'Нужно обновить статус', pages:'стр.', tiles:'плиток',
+    changes:'Сравнить', compareWith:'Сравнить с', originalBase:'Импортированный оригинал', savedBase:'Сохранённый черновик HA',
+    changeSummary:'Изменения', noChanges:'Нет структурных изменений', changesTotal:'Всего', changesShown:'Показано', previousChanges:'Предыдущее сравнение',
+    changesError:'Сравнение недоступно', revision:'Ревизия', room_added:'Комната добавлена', room_removed:'Комната удалена',
+    room_changed:'Комната изменена', room_order:'Порядок комнат изменён', widget_added:'Виджет добавлен', widget_removed:'Виджет удалён',
+    widget_moved:'Виджет перемещён', widget_changed:'Виджет изменён', widget_order:'Порядок виджетов изменён', section_changed:'Раздел изменён',
+    panel:'Настройки панели', style:'Оформление', requires:'Требуемые возможности', views:'Переиспользуемые окна', attention:'События внимания',
+    groups:'Группы сенсоров', settings:'Настройки', type:'Тип виджета', other:'Другие поля',
+    chooseEntity:'Выбрать сущность', search:'Поиск', area:'Зона', domain:'Домен', all:'Все', unassigned:'Без зоны',
+    includeInactive:'Включая отключённые и скрытые', disabled:'Отключена', hidden:'Скрыта', unavailable:'Недоступна',
+    unknown:'Неизвестно', missingState:'Нет состояния', loading:'Загрузка', noEntities:'Ничего не найдено', catalogError:'Ошибка поиска сущностей',
+    previousPage:'Предыдущая страница', nextPage:'Следующая страница', areasTruncated:'Список зон ограничен; используйте поиск по всем зонам',
     geometry:'Некорректная геометрия', text:'Некорректное или слишком длинное название', entityError:'Некорректная сущность действия',
     action_fields:'Неподдерживаемые настройки действия', capability:'Возможность недоступна', room_limit:'Достигнут лимит комнат',
     widget_limit:'Достигнут лимит виджетов', room_full:'Комната заполнена', page_limit:'Достигнут лимит страниц', byte_limit:'Превышен лимит JSON',
@@ -55,6 +81,10 @@ class HomePanelDraft extends HTMLElement {
     this._room = '';
     this._editing = null;
     this._fields = false;
+    this._catalogRequest = 0;
+    this._catalog = null;
+    this._historyItems = [];
+    this._historyLimit = 3;
     this.shadowRoot.innerHTML = `
       <link rel="stylesheet" href="${new URL('./home-panel.css', import.meta.url)}">
       <div class="draft-toolbar" id="draft-storage-tools">
@@ -63,6 +93,10 @@ class HomePanelDraft extends HTMLElement {
         <button id="draft-delete-ha" class="icon danger" data-tool="deleteHA"><ha-icon icon="mdi:trash-can-outline">&#215;</ha-icon></button>
       </div>
       <p id="draft-storage-status" class="report muted" role="status"></p>
+      <details id="draft-history"><summary><span data-label="history"></span> <span id="draft-history-count"></span></summary>
+        <p id="draft-history-status" class="report muted" role="status"></p>
+        <div id="draft-history-items"></div>
+      </details>
       <p id="draft-empty" class="muted"></p>
       <section id="draft-work" hidden>
         <div class="draft-toolbar"><span id="draft-base" class="muted"></span>
@@ -73,6 +107,14 @@ class HomePanelDraft extends HTMLElement {
         </div>
         <p id="draft-model-status" class="report" role="status"></p>
         <p id="draft-status" class="report" role="status"></p><p id="draft-error" class="warning" role="status" hidden></p>
+        <div id="draft-change-tools" class="draft-toolbar">
+          <label class="grow"><span data-label="compareWith"></span><select id="draft-compare-base"><option value="original" data-label="originalBase"></option><option value="saved" data-label="savedBase"></option></select></label>
+          <button id="draft-changes" type="button"><ha-icon icon="mdi:file-compare">&#8800;</ha-icon><span data-label="changes"></span></button>
+        </div>
+        <details id="draft-change-details" hidden><summary data-label="changeSummary"></summary>
+          <p id="draft-change-status" class="report muted" role="status"></p>
+          <ol id="draft-change-items" class="draft-change-items"></ol>
+        </details>
         <div class="draft-toolbar"><label class="grow"><span data-label="room"></span><select id="draft-room"></select></label>
           <button id="draft-add-room" class="icon" data-tool="addRoom"><ha-icon icon="mdi:plus">+</ha-icon></button>
           <button id="draft-room-up" class="icon" data-tool="up"><ha-icon icon="mdi:arrow-up">&#8593;</ha-icon></button>
@@ -88,7 +130,7 @@ class HomePanelDraft extends HTMLElement {
         <div id="draft-widgets"></div>
         <form id="draft-action-form" class="draft-fields" hidden>
           <label><span data-label="name"></span><input id="draft-action-name" required maxlength="256" autocomplete="off"></label>
-          <label><span data-label="entity"></span><input id="draft-entity" required maxlength="127" pattern="(script|scene|button|input_button)\\.[a-z0-9_]+" list="draft-entities" autocomplete="off" spellcheck="false"><datalist id="draft-entities"></datalist></label>
+          <div class="entity-field"><label><span data-label="entity"></span><input id="draft-entity" required maxlength="127" pattern="(script|scene|button|input_button)\\.[a-z0-9_]+" list="draft-entities" autocomplete="off" spellcheck="false"><datalist id="draft-entities"></datalist></label><button id="draft-choose-entity" type="button" class="icon" data-tool="chooseEntity"><ha-icon icon="mdi:magnify">&#9906;</ha-icon></button></div>
           <label><span data-label="destination"></span><select id="draft-target"></select></label>
           <label><span data-label="icon"></span><select id="draft-icon"></select></label>
           <label><span data-label="interaction"></span><select id="draft-interaction"></select></label>
@@ -96,7 +138,28 @@ class HomePanelDraft extends HTMLElement {
           <label class="draft-check" id="draft-stop-field"><input type="checkbox" id="draft-stop"><span data-label="stop"></span></label>
           <div class="draft-toolbar"><button type="submit" id="draft-update-action" class="primary" data-label="update"></button><button type="button" id="draft-cancel-action" data-label="cancel"></button></div>
         </form>
-      </section>`;
+      </section>
+      <dialog id="entity-picker" aria-labelledby="entity-picker-title">
+        <h2 id="entity-picker-title" data-label="chooseEntity"></h2>
+        <form id="entity-search-form" class="draft-fields">
+          <div class="entity-field entity-query"><label><span data-label="search"></span><input id="entity-query" type="search" maxlength="128" autocomplete="off"></label><button type="submit" class="icon" data-tool="search"><ha-icon icon="mdi:magnify">&#9906;</ha-icon></button></div>
+          <label><span data-label="domain"></span><select id="entity-domain"></select></label>
+          <label><span data-label="area"></span><select id="entity-area"></select></label>
+          <label class="draft-check entity-query"><input id="entity-inactive" type="checkbox"><span data-label="includeInactive"></span></label>
+        </form>
+        <p id="entity-results-status" class="report muted" role="status" aria-live="polite"></p>
+        <p id="entity-areas-warning" class="report warning" data-label="areasTruncated" hidden></p>
+        <div id="entity-results" aria-busy="false"></div>
+        <div class="draft-toolbar entity-paging"><button id="entity-previous" type="button" class="icon" data-tool="previousPage"><ha-icon icon="mdi:chevron-left">&#8249;</ha-icon></button><span id="entity-page" class="muted"></span><button id="entity-next" type="button" class="icon" data-tool="nextPage"><ha-icon icon="mdi:chevron-right">&#8250;</ha-icon></button></div>
+        <div class="dialog-actions"><button id="entity-cancel" type="button" data-label="cancel"></button></div>
+      </dialog>`;
+    this.$('draft-choose-entity').onclick = () => this._openEntities();
+    this.$('entity-search-form').onsubmit = event => { event.preventDefault(); this._searchEntities(); };
+    for (const id of ['entity-domain', 'entity-area', 'entity-inactive']) this.$(id).onchange = () => this._searchEntities();
+    this.$('entity-previous').onclick = () => this._searchEntities(Math.max(0, this._catalog.offset - 25));
+    this.$('entity-next').onclick = () => this._searchEntities(this._catalog.next_offset);
+    this.$('entity-cancel').onclick = () => this._closeEntities();
+    this.$('entity-picker').oncancel = event => { event.preventDefault(); this._closeEntities(); };
     this.$('draft-room').onchange = event => {
       if (!this._canLeave()) { event.target.value = this._room; return; }
       this._room = event.target.value; this._editing = null; this._fields = false; this._render();
@@ -133,6 +196,14 @@ class HomePanelDraft extends HTMLElement {
           detail:{document:JSON.stringify(normalizedDraft(this._draft)), version:this._version}}));
       }
     };
+    this.$('draft-compare-base').onchange = () => this._controls();
+    this.$('draft-changes').onclick = () => {
+      const base = this._comparisonBase();
+      if (this._context.storageOnline && !this._context.busy && !this._fields && this._editing === null && this._draft && base) {
+        this.dispatchEvent(new CustomEvent('draft-changes', {bubbles:true, composed:true, detail:{base,
+          target:this.$('draft-compare-base').value, document:JSON.stringify(normalizedDraft(this._draft)), version:this._version}}));
+      }
+    };
     this.$('draft-export').onclick = () => this._export();
     this.$('draft-reset').onclick = () => { if (confirm(this.t('discardDraft'))) this.clear(); };
     this.$('draft-save-ha').onclick = () => {
@@ -151,9 +222,12 @@ class HomePanelDraft extends HTMLElement {
   get sourceHash() { return this._base?.sha256; }
   get document() { return this._draft ? structuredClone(this._draft) : null; }
   set context(value) {
+    if (value.catalogKey !== this._context.catalogKey || !value.storageOnline) this._closeEntities();
+    const languageChanged = this._lang !== (value.language || 'en');
     this._context = value;
     this._lang = value.language || 'en';
     this._controls();
+    if (languageChanged && this._catalog && !this._catalogPending) this.acceptEntities(this._catalog, this._catalogRequest);
   }
   begin(original, caps, highWater) {
     try {
@@ -164,16 +238,20 @@ class HomePanelDraft extends HTMLElement {
       this._draft = doc; this._base = {source:original.source, sha256:original.sha256, revision:original.revision};
       this._origin = {source:original.source, sha256:original.sha256, revision:original.revision, document:original.document};
       this._unsaved = true;
+      this._restoredGeneration = null;
       this._caps = structuredClone(caps); this._room = doc.rooms[0].id;
-      this._editing = null; this._fields = false; this._validation = this._modelValidation = null; this._error = ''; this._version++;
+      this._editing = null; this._fields = false; this._validation = this._modelValidation = this._changes = null; this._changesError = false; this._error = ''; this._version++;
       this._render(); this._notify();
     } catch (error) { this._error = error.code || 'failed'; this._controls(); }
   }
   clear(resetStorage = false) {
-    this._draft = this._base = this._caps = this._validation = this._modelValidation = null;
+    this._closeEntities();
+    this._draft = this._base = this._caps = this._validation = this._modelValidation = this._changes = null;
+    this._changesError = false; this.$('draft-compare-base').value = 'original';
     this._room = ''; this._editing = null; this._fields = false; this._error = ''; this._version++;
     this._origin = null; this._unsaved = false;
-    if (resetStorage) { this._storeRevision = null; this._storeFresh = false; this._storeHasRecord = false; this._storeGeneration = 0; this._storeError = ''; }
+    this._restoredGeneration = null; this._historyError = '';
+    if (resetStorage) { this._storeRevision = null; this._storeFresh = false; this._storeHasRecord = false; this._storeGeneration = 0; this._storeError = ''; this._checkpointDocument = null; this._historyItems = []; }
     for (const input of this.shadowRoot.querySelectorAll('input')) { input.value = ''; input.checked = false; }
     this.$('draft-widgets').replaceChildren(); this.$('draft-entities').replaceChildren(); this.$('draft-target').replaceChildren();
     this.$('draft-room').replaceChildren(); this._controls(); this._notify();
@@ -184,6 +262,9 @@ class HomePanelDraft extends HTMLElement {
     if (restore) this.clear();
     this._storeRevision = result.revision; this._storeGeneration = result.generation;
     this._storeHasRecord = !!result.record; this._storeFresh = true; this._storeError = '';
+    this._checkpointDocument = result.record?.document || null;
+    this._historyItems = result.history || []; this._historyLimit = result.history_limits?.entries || 3; this._historyError = '';
+    if (!this._checkpointDocument) this.$('draft-compare-base').value = 'original';
     if (restore && result.record) {
       try {
         const record = result.record, doc = JSON.parse(record.document);
@@ -198,6 +279,52 @@ class HomePanelDraft extends HTMLElement {
     this._controls(); this._notify();
     return !result.record || !!this._draft;
   }
+  restoreHistory(result, detail) {
+    if (this._version !== detail.version || !this._storeFresh || this._storeRevision !== detail.expected_revision ||
+        result.revision !== detail.expected_revision || result.history_generation !== detail.history_generation) return false;
+    try {
+      const record = result.record, doc = JSON.parse(record.document);
+      doc.revision = nextRevision(doc, Math.max(result.document_high_water || 0, this._draft?.revision || 0,
+        this._context.revisionHighWater || 0, this._origin?.revision || 0));
+      assertDraftBudget(doc, record.capabilities);
+      const origin = structuredClone(record.original), caps = structuredClone(record.capabilities);
+      this.clear();
+      this._draft = doc; this._origin = origin; this._caps = caps;
+      this._base = {source:origin.source, sha256:origin.sha256, revision:origin.revision};
+      this._room = doc.rooms[0].id; this._unsaved = true; this._restoredGeneration = detail.history_generation;
+      this._version++; this._render(); this._notify(); return true;
+    } catch (error) {
+      this._historyError = error.code || 'restoreInvalid'; this._controls(); return false;
+    }
+  }
+  _renderHistory() {
+    this.$('draft-history').hidden = !this._context.storageOnline && !this._historyItems.length;
+    this.$('draft-history-count').textContent = `${this._historyItems.length} / ${this._historyLimit}`;
+    this.$('draft-history-status').textContent = this._historyError ? this.t(this._historyError) :
+      !this._storeFresh ? this.t('storageUnknown') : this._historyItems.length ? '' : this.t('historyEmpty');
+    if (this._historyRendered !== this._historyItems || this._historyLanguage !== this._lang) {
+      this._historyRendered = this._historyItems; this._historyLanguage = this._lang;
+      this.$('draft-history-items').replaceChildren(...this._historyItems.map(item => {
+        const row = document.createElement('div'), text = document.createElement('div'), title = document.createElement('strong'),
+          time = document.createElement('time'), info = document.createElement('small'), button = document.createElement('button'), icon = document.createElement('ha-icon');
+        row.className = 'draft-history-row'; row.dataset.generation = String(item.generation);
+        title.textContent = `HA v${item.generation} \u00b7 r${item.document_revision}`;
+        const date = item.saved_at == null ? null : new Date(item.saved_at);
+        if (date && Number.isFinite(date.getTime())) {
+          time.dateTime = date.toISOString(); time.textContent = new Intl.DateTimeFormat(this._lang, {dateStyle:'short', timeStyle:'short'}).format(date);
+        } else time.textContent = this.t('unknownTime');
+        info.textContent = `${item.sha256.slice(0, 12)} \u00b7 ${item.bytes.toLocaleString(this._lang)} ${this.t('bytes')}`; info.title = item.sha256;
+        text.append(title, time, info); icon.setAttribute('icon', 'mdi:restore'); icon.textContent = '\u21b6';
+        button.type = 'button'; button.title = button.ariaLabel = this.t('openHistory'); button.append(icon, this.t('openHistory'));
+        button.onclick = () => {
+          if (this._context.busy || !this._storeFresh || !this._context.storageOnline || !confirm(this.t('confirmHistory'))) return;
+          this._storageEvent('history', {expected_revision:this._storeRevision, history_generation:item.generation, version:this._version});
+        };
+        row.append(text, button); return row;
+      }));
+    }
+    for (const button of this.$('draft-history-items').querySelectorAll('button')) button.disabled = this._context.busy || !this._storeFresh || !this._context.storageOnline;
+  }
   invalidate() { this._validationFresh = false; this._controls(); }
   acceptValidation(report, version) {
     if (!this._draft || this._version !== version) return;
@@ -206,6 +333,33 @@ class HomePanelDraft extends HTMLElement {
   acceptModelValidation(report, version) {
     if (!this._draft || this._version !== version) return;
     this._modelValidation = report; this._modelValidationVersion = version; this._controls();
+  }
+  _comparisonBase() { return this.$('draft-compare-base').value === 'saved' ? this._storeFresh && this._checkpointDocument : this._origin?.document; }
+  acceptChanges(report, detail) {
+    if (!this._draft || this._version !== detail.version || this._comparisonBase() !== detail.base || this.$('draft-compare-base').value !== detail.target) return;
+    this._changes = report; this._changesVersion = detail.version; this._changesBase = detail.base; this._changesTarget = detail.target;
+    this._changesError = false; this.$('draft-change-details').open = true; this._controls();
+  }
+  rejectChanges(detail) {
+    if (!this._draft || this._version !== detail.version || this._comparisonBase() !== detail.base || this.$('draft-compare-base').value !== detail.target) return;
+    this._changesError = true; this.$('draft-change-details').open = true; this._controls();
+  }
+  _renderChanges() {
+    const result = this._changes;
+    this.$('draft-change-details').hidden = !result && !this._changesError;
+    const stale = this._fields || this._changesVersion !== this._version || this._changesBase !== this._comparisonBase() || this._changesTarget !== this.$('draft-compare-base').value;
+    this.$('draft-change-status').textContent = this._changesError ? this.t('changesError') : !result ? '' :
+      (stale ? this.t('previousChanges') + ': ' : '') + (result.total ? `${this.t('changesTotal')}: ${result.total}${result.truncated ? ` \u00b7 ${this.t('changesShown')}: ${result.items.length}` : ''}` : this.t('noChanges')) +
+      ` \u00b7 ${this.t('revision')}: ${result.base_revision} \u2192 ${result.document_revision}`;
+    if (this._changesRendered === result && this._changesLanguage === this._lang) return;
+    this._changesRendered = result; this._changesLanguage = this._lang;
+    this.$('draft-change-items').replaceChildren(...(result?.items || []).map(item => {
+      const row = document.createElement('li'), title = document.createElement('strong'), name = document.createElement('span'), info = document.createElement('small');
+      title.textContent = this.t(item.kind); name.textContent = item.name || (item.section ? this.t(item.section) : '');
+      info.textContent = [item.from_room ? `${item.from_room} \u2192 ${item.room}` : item.room,
+        item.id, item.fields?.map(field => this.t(field)).join(', ')].filter(Boolean).join(' \u00b7 ');
+      row.append(title); if (name.textContent) row.append(name); if (info.textContent) row.append(info); return row;
+    }));
   }
   _notify() { this.dispatchEvent(new CustomEvent('draft-changed', {bubbles:true, composed:true})); }
   _canLeave() { return !this._fields || confirm(this.t('discardFields')); }
@@ -269,12 +423,84 @@ class HomePanelDraft extends HTMLElement {
     if (!id && room.kind !== 'actions' && room.widgets.length >= actionCapacity(this._draft)) {
       this.$('draft-target').value = targets.find(r => r.kind === 'actions')?.id || room.id;
     }
-    this.$('draft-entities').replaceChildren(...Object.entries(this._context.states || {}).filter(([id]) => /^(script|scene|button|input_button)\./.test(id)).map(([id, state]) => new Option(state.attributes.friendly_name || id, id)));
+    this.$('draft-entities').replaceChildren(...Object.entries(this._context.states || {}).filter(([id]) => /^(script|scene|button|input_button)\./.test(id)).slice(0, 50).map(([id, state]) => new Option(state.attributes.friendly_name || id, id)));
     this.$('draft-action-form').hidden = false;
     this._stopField(); this._controls(); this.$('draft-action-name').focus();
   }
   _stopField() {
     this.$('draft-stop-field').hidden = !this._caps?.features.includes('script-controls.v1') || !this.$('draft-entity').value.startsWith('script.');
+  }
+  _openEntities() {
+    if (!this._context.storageOnline || this._context.busy || this._editing === null || this._capsChanged()) return;
+    this._catalog = null; this._catalogError = false;
+    this.$('entity-query').value = '';
+    this.$('entity-domain').replaceChildren(new Option(this.t('all'), ''), ...['script', 'scene', 'button', 'input_button'].map(d => new Option(d, d)));
+    this.$('entity-area').replaceChildren(new Option(this.t('all'), ''), new Option(this.t('unassigned'), '@none'));
+    this.$('entity-inactive').checked = false;
+    this.$('entity-results').replaceChildren(); this.$('entity-areas-warning').hidden = true;
+    this.$('entity-picker').showModal(); this._searchEntities(); this.$('entity-query').focus();
+  }
+  _closeEntities() {
+    this._catalogRequest++; this._catalogPending = false;
+    if (this.$('entity-picker').open) {
+      this.$('entity-picker').close();
+      if (this.isConnected) this.$('draft-choose-entity').focus();
+    }
+  }
+  _searchEntities(offset = 0) {
+    if (!this.$('entity-picker').open || this._context.busy || !this._context.storageOnline) return;
+    const area = this.$('entity-area').value;
+    this._catalogPending = true; this._catalogError = false;
+    this.$('entity-results').replaceChildren();
+    this.dispatchEvent(new CustomEvent('draft-entities', {bubbles:true, composed:true, detail:{
+      request:++this._catalogRequest, query:{query:this.$('entity-query').value.trim(), domain:this.$('entity-domain').value,
+        area_id:area === '@none' ? null : area.startsWith('id:') ? area.slice(3) : '',
+        include_inactive:this.$('entity-inactive').checked, offset, limit:25}}}));
+    this._catalogControls();
+  }
+  acceptEntities(result, request) {
+    if (!this.$('entity-picker').open || request !== this._catalogRequest) return;
+    this._catalogPending = false; this._catalog = result;
+    const selectedArea = this.$('entity-area').value;
+    this.$('entity-area').replaceChildren(new Option(this.t('all'), ''), new Option(this.t('unassigned'), '@none'),
+      ...result.areas.map(area => new Option(area.name, 'id:' + area.id)));
+    this.$('entity-area').value = selectedArea;
+    this.$('entity-areas-warning').hidden = !result.areas_truncated;
+    this.$('entity-results').replaceChildren(...result.items.map(item => {
+      const button = document.createElement('button'), text = document.createElement('span'), name = document.createElement('strong'),
+        description = document.createElement('small'), icon = document.createElement('ha-icon');
+      button.type = 'button'; button.className = 'entity-result'; button.dataset.entity = item.entity_id;
+      icon.setAttribute('icon', 'mdi:' + ({script:'script-text-outline', scene:'palette-outline', button:'gesture-tap-button', input_button:'gesture-tap-button'}[item.domain]));
+      icon.textContent = '\u25c7'; name.textContent = item.name;
+      description.textContent = [item.entity_id, item.area_name, item.disabled && this.t('disabled'), item.hidden && this.t('hidden'),
+        item.availability !== 'available' && this.t({missing:'missingState', unavailable:'unavailable', unknown:'unknown'}[item.availability])].filter(Boolean).join(' \u00b7 ');
+      text.append(name, description); button.append(icon, text);
+      button.onclick = () => {
+        if (this._context.busy || this._editing === null || this._capsChanged()) return;
+        this.$('draft-entity').value = item.entity_id;
+        if (!this.$('draft-action-name').value.trim()) this.$('draft-action-name').value = item.name;
+        this._fields = true; this._stopField(); this._closeEntities(); this._controls();
+      };
+      return button;
+    }));
+    this._catalogControls();
+  }
+  rejectEntities(request) {
+    if (!this.$('entity-picker').open || request !== this._catalogRequest) return;
+    this._catalogPending = false; this._catalogError = true; this._catalog = null; this._catalogControls();
+  }
+  _catalogControls() {
+    if (!this.$('entity-picker').open) return;
+    this.$('entity-domain').options[0].text = this.t('all');
+    const pending = this._catalogPending || this._context.busy, result = this._catalog;
+    this.$('entity-results').setAttribute('aria-busy', String(!!this._catalogPending));
+    this.$('entity-results-status').textContent = this._catalogPending ? this.t('loading') : this._catalogError ? this.t('catalogError') : result?.items.length ? '' : this.t('noEntities');
+    this.$('entity-page').textContent = result?.items.length ? `${result.offset + 1}\u2013${result.offset + result.items.length} / ${result.total}` : '';
+    this.$('entity-previous').disabled = pending || !result || result.offset === 0;
+    this.$('entity-next').disabled = pending || result?.next_offset == null;
+    for (const control of this.$('entity-search-form').querySelectorAll('input, select, button')) control.disabled = pending;
+    for (const button of this.$('entity-results').querySelectorAll('button')) button.disabled = pending;
+    this.$('entity-cancel').disabled = false;
   }
   _controls() {
     const root = this.shadowRoot, blocked = !!this._context.busy;
@@ -282,6 +508,7 @@ class HomePanelDraft extends HTMLElement {
     root.querySelectorAll('[data-tool]').forEach(e => { e.title = e.ariaLabel = this.t(e.dataset.tool); });
     this.$('draft-empty').textContent = this.t('empty'); this.$('draft-empty').hidden = !!this._draft;
     this.$('draft-work').hidden = !this._draft;
+    this._renderChanges();
     const formOpen = this._editing !== null;
     this.$('draft-save-ha').disabled = blocked || !this._context.storageOnline || !this._storeFresh || !this._draft || !this._unsaved || this._fields || formOpen;
     this.$('draft-load-ha').disabled = blocked || !this._context.storageOnline;
@@ -289,11 +516,12 @@ class HomePanelDraft extends HTMLElement {
     this.$('draft-storage-status').textContent = this._storeError === 'draft_conflict' ? this.t('conflict') :
       !this._storeFresh ? this.t('storageUnknown') : this._unsaved || this._fields ? this.t('unsaved') :
       this._storeHasRecord ? `${this.t('savedHA')} \u00b7 v${this._storeGeneration}` : '';
+    this._renderHistory();
     if (!this._draft) return;
     const room = this._draft.rooms.find(r => r.id === this._room), index = this._draft.rooms.indexOf(room);
     const cap = actionCapacity(this._draft);
     const opaque = Object.keys(room.groups).length || room.widgets.some(w => w.type !== 'action');
-    this.$('draft-base').textContent = `${this.t('local')} r${this._draft.revision} \u00b7 ${this._base.source} r${this._base.revision}`;
+    this.$('draft-base').textContent = `${this.t('local')} r${this._draft.revision} \u00b7 ${this._base.source} r${this._base.revision}` + (this._restoredGeneration ? ` \u00b7 ${this.t('history')} v${this._restoredGeneration}` : '');
     this.$('draft-fit').textContent = opaque ? this.t('readOnly') : `${room.widgets.length} / ${cap} ${this.t('tiles')} \u00b7 ${room.kind === 'actions' ? Math.max(1, Math.ceil(room.widgets.length / (cap || 1))) : 1} ${this.t('pages')}`;
     const stale = !this._validationFresh || this._validationVersion !== this._version || !this._context.fresh;
     this.$('draft-status').textContent = [this._fields && this.t('pending'), this._context.sourceCurrent === false && this.t('changedSource'), this._capsChanged() && this.t('changedCaps'),
@@ -318,8 +546,14 @@ class HomePanelDraft extends HTMLElement {
     for (const button of root.querySelectorAll('#draft-widgets button')) button.disabled = blocked || this._fields || formOpen || this._capsChanged() || button.dataset.blocked === 'true' || (button.classList.contains('draft-widget-main') && !editableAction(room.widgets.find(w => w.id === button.parentElement.dataset.widgetId), this._caps));
     this.$('draft-check').disabled = blocked || this._fields || formOpen || !this._context.canValidate || this._capsChanged();
     this.$('draft-model-check').disabled = blocked || this._fields || formOpen || !this._context.storageOnline;
+    this.$('draft-changes').disabled = blocked || this._fields || formOpen || !this._context.storageOnline || !this._comparisonBase();
+    this.$('draft-compare-base').disabled = blocked || this._fields || formOpen;
+    this.$('draft-compare-base').querySelector('[value="saved"]').disabled = !this._storeFresh || !this._checkpointDocument;
     this.$('draft-export').disabled = blocked || this._fields || formOpen;
     this.$('draft-update-action').disabled = blocked || this._capsChanged();
+    this.$('draft-choose-entity').disabled = blocked || !this._context.storageOnline || this._capsChanged();
+    this._renderHistory();
+    this._catalogControls();
     this._stopField();
   }
   _export() {

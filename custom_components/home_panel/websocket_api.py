@@ -14,8 +14,10 @@ from homeassistant.helpers.update_coordinator import UpdateFailed
 
 from .const import DOMAIN
 from .coordinator import PanelConfigEntry, PanelCoordinator
-from .draft_storage import DraftError, prepare_record, repository
+from .draft_storage import MAX_GENERATION, DraftError, DraftInvalid, prepare_record, repository
 from .draft_validation import ModelCheckBusy, ModelCheckInput, async_check_model
+from .draft_changes import async_summarize_changes
+from .entity_catalog import ACTION_DOMAINS, async_catalog
 from ._core import IdentityMismatch, OutcomeUnknown, PanelError, PanelHTTPError, ProtocolError, Source
 from ._core import MAX_DOCUMENT_BYTES, RuntimeSnapshot
 from ._core import (
@@ -29,7 +31,7 @@ PREFIX = DOMAIN + "/config/"
 @callback
 def async_register(hass: HomeAssistant) -> None:
     for command in (ws_panels, ws_status, ws_import, ws_validate, ws_draft_get, ws_draft_save, ws_draft_delete,
-                    ws_model_check):
+                    ws_model_check, ws_entities, ws_model_changes, ws_draft_history_get):
         websocket_api.async_register_command(hass, command)
 
 
@@ -173,6 +175,26 @@ async def ws_status(hass: HomeAssistant, connection: websocket_api.ActiveConnect
     await _run(hass, connection, msg, "status")
 
 
+@websocket_api.websocket_command({
+    "type": PREFIX + "entities", vol.Required("entry_id"): str,
+    vol.Optional("domain", default=""): vol.In(("", *ACTION_DOMAINS)),
+    vol.Optional("area_id", default=""): vol.Any(None, vol.All(str, vol.Length(max=128))),
+    vol.Optional("query", default=""): vol.All(str, vol.Length(max=128)),
+    vol.Optional("include_inactive", default=False): bool,
+    vol.Optional("offset", default=0): vol.All(int, vol.Range(min=0)),
+    vol.Optional("limit", default=25): vol.All(int, vol.Range(min=1, max=50)),
+})
+@websocket_api.require_admin
+@callback
+def ws_entities(hass: HomeAssistant, connection: websocket_api.ActiveConnection, msg: dict[str, Any]) -> None:
+    entry = hass.config_entries.async_get_entry(msg["entry_id"])
+    if entry is None or entry.domain != DOMAIN or not entry.unique_id:
+        connection.send_error(msg["id"], "panel_unavailable", "Panel configuration not found")
+        return
+    connection.send_result(msg["id"], async_catalog(hass, **{
+        key: msg[key] for key in ("domain", "area_id", "query", "include_inactive", "offset", "limit")}))
+
+
 @websocket_api.websocket_command({"type": PREFIX + "import", vol.Required("entry_id"): str,
                                  vol.Required("source"): vol.In([source.value for source in Source])})
 @websocket_api.require_admin
@@ -215,6 +237,32 @@ async def ws_model_check(hass: HomeAssistant, connection: websocket_api.ActiveCo
         connection.send_error(msg["id"], "internal_error", "Internal model check error")
 
 
+@websocket_api.websocket_command({"type": PREFIX + "model_changes", vol.Required("entry_id"): str,
+                                 vol.Required("base"): str, vol.Required("document"): str})
+@websocket_api.require_admin
+@websocket_api.async_response
+async def ws_model_changes(hass: HomeAssistant, connection: websocket_api.ActiveConnection, msg: dict[str, Any]) -> None:
+    entry = hass.config_entries.async_get_entry(msg["entry_id"])
+    if entry is None or entry.domain != DOMAIN or not entry.unique_id:
+        connection.send_error(msg["id"], "panel_unavailable", "Panel configuration not found")
+        return
+    try:
+        result = await async_summarize_changes(hass, entry.entry_id, msg["base"], msg["document"])
+        if hass.config_entries.async_get_entry(entry.entry_id) is not entry:
+            connection.send_error(msg["id"], "panel_unavailable", "Panel configuration changed")
+            return
+        connection.send_result(msg["id"], result)
+    except asyncio.CancelledError:
+        raise
+    except ModelCheckBusy:
+        connection.send_error(msg["id"], "model_check_busy", "Another host model job is in progress")
+    except DraftInvalid:
+        connection.send_error(msg["id"], "invalid_document", "Expected bounded unambiguous draft documents")
+    except Exception:
+        _LOGGER.error("Unexpected failure in Home Panel change summary")
+        connection.send_error(msg["id"], "internal_error", "Internal change summary error")
+
+
 async def _draft(hass, connection, msg, operation):
     # HA checkpoints remain available when the panel is offline or unloaded.
     entry = hass.config_entries.async_get_entry(msg["entry_id"])
@@ -225,6 +273,8 @@ async def _draft(hass, connection, msg, operation):
         owner = repository(hass, entry)
         if operation == "get":
             result = await owner.get()
+        elif operation == "history":
+            result = await owner.history(msg["expected_revision"], msg["history_generation"])
         else:
             record = None
             if operation == "save":
@@ -250,6 +300,15 @@ async def _draft(hass, connection, msg, operation):
 @websocket_api.async_response
 async def ws_draft_get(hass: HomeAssistant, connection: websocket_api.ActiveConnection, msg: dict[str, Any]) -> None:
     await _draft(hass, connection, msg, "get")
+
+
+@websocket_api.websocket_command({"type": PREFIX + "draft_history_get", vol.Required("entry_id"): str,
+                                 vol.Required("expected_revision"): vol.All(str, vol.Length(max=64)),
+                                 vol.Required("history_generation"): vol.All(int, vol.Range(min=1, max=MAX_GENERATION))})
+@websocket_api.require_admin
+@websocket_api.async_response
+async def ws_draft_history_get(hass: HomeAssistant, connection: websocket_api.ActiveConnection, msg: dict[str, Any]) -> None:
+    await _draft(hass, connection, msg, "history")
 
 
 @websocket_api.websocket_command({"type": PREFIX + "draft_save", vol.Required("entry_id"): str,

@@ -12,6 +12,10 @@ module.exports = async function testPersistence(page, output, original) {
   const saved = await current(page);
   assert.equal(await page.evaluate(() => harness.element.$('draft-editor').dirty), false);
   assert.match(await page.locator('#draft-storage-status').textContent(), /Saved in HA/);
+  await page.locator('#draft-compare-base').selectOption('saved');
+  await page.locator('#draft-changes').click(); await idle(page);
+  assert.match(await page.locator('#draft-change-status').textContent(), /No structural changes/);
+  assert.equal(await page.evaluate(() => harness.element.$('draft-editor').dirty), false);
   // Internal HA navigation detaches this element without a full browser reload.
   await page.evaluate(() => { harness.element.remove(); document.body.append(harness.element); });
   await until(page, () => harness.element._loaded && !harness.element._busy);
@@ -28,6 +32,10 @@ module.exports = async function testPersistence(page, output, original) {
   assert.match(await page.locator('#draft-model-status').textContent(), /HA model: Valid model/);
   assert.equal(await page.evaluate(() => harness.element._fresh), false);
   assert.equal(await page.evaluate(() => harness.element.$('draft-editor').dirty), false);
+  await page.locator('#draft-compare-base').selectOption('saved');
+  await page.locator('#draft-changes').click(); await idle(page);
+  assert.match(await page.locator('#draft-change-status').textContent(), /No structural changes/);
+  assert.equal(await page.evaluate(() => harness.element._fresh), false, 'Comparison works without device metadata');
   await page.locator('#refresh').click(); await idle(page);
   await page.evaluate(() => harness.faults.push({error:'model_check_busy'}));
   await page.locator('#draft-model-check').click(); await idle(page);
@@ -50,6 +58,7 @@ module.exports = async function testPersistence(page, output, original) {
     assert.equal((await current(second)).rooms[0].name, 'Editor B');
     assert.match(await second.locator('#message').textContent(), /version conflict/);
     assert.equal(await second.locator('#draft-save-ha').isDisabled(), true);
+    assert.equal(await second.locator('#draft-compare-base option[value=saved]').evaluate(option => option.disabled), true, 'Conflict invalidates the saved comparison baseline');
     await second.setViewportSize({width:390, height:844});
     await second.locator('#draft-storage-status').scrollIntoViewIfNeeded();
     await second.screenshot({path:path.join(output, 'draft-conflict-390.png'), fullPage:true});
@@ -71,9 +80,12 @@ module.exports = async function testPersistence(page, output, original) {
     await page.locator('#draft-load-ha').click(); await idle(page);
     assert.equal((await current(page)).rooms[0].name, 'Saved despite lost reply');
     assert.equal(await page.evaluate(() => harness.element.$('draft-editor').dirty), false);
+    await require('./ha_frontend_history.cjs')(page, second, output, saved);
     page.once('dialog', d => d.accept());
     await page.locator('#draft-delete-ha').click(); await idle(page);
     assert.equal(await current(page), null);
+    assert.equal(await page.evaluate(() => harness.element.$('draft-editor')._changes), null);
+    assert.equal(await page.locator('.draft-history-row').count(), 0);
     assert.equal(await page.locator('#document').textContent(), original);
     await second.evaluate(() => harness.close());
   } finally { await second.close(); }

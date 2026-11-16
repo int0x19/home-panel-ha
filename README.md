@@ -1,5 +1,7 @@
 # Home Panel HA
 
+![Home Panel](custom_components/home_panel/brand/icon.png)
+
 Home Assistant companion for the ESP32/LVGL Home Panel. This repository owns the
 integration, administrator configuration page, bounded HA draft checkpoints,
 HA-specific validation orchestration, translations and HA/browser tests.
@@ -10,6 +12,21 @@ codec, read/check client and immutable JS draft editing live in the independent
 submodules or handwritten copies of those implementations here.
 
 ## Installation
+
+Requires **Home Assistant 2026.11.0 or newer**. Marketplace packaging is prepared
+locally; it becomes installable after the owner publishes a GitHub release.
+See the [publication and installation checklist](docs/MARKETPLACE.md).
+
+### Marketplace
+
+Once published, open [Home Panel in your Marketplace](https://my.home-assistant.io/redirect/marketplace_repository/?owner=int0x19&repository=home-panel-ha&category=integration),
+add the custom repository and install **Home Panel Configuration**. Only
+`home-panel-ha` is installed here: core is included, firmware stays on ESP32.
+Restart HA when requested, then add **Home Panel Configuration** in Devices &
+Services. Setup asks for the panel's local HTTP address and configuration key,
+not a Home Assistant access token. Standard ESPHome integration remains in use.
+
+### Manual Installation
 
 Build or obtain a `home_panel_core-0.1.0-py3-none-any.whl`, then create the
 offline-installable integration archive:
@@ -30,9 +47,15 @@ Release vendoring is generated, version-checked and recorded with the input whee
 SHA-256. It is not a fork and is never edited by hand. An incompatible bundled
 core fails closed instead of falling back to an installed version.
 
-No HACS publication, hosted remote or real HA/device installation is performed
-by the repository split. The installed ESP32 still needs the prepared metadata
-firmware before companion pairing. This repo does not bypass that acceptance gate.
+Marketplace must use release asset **`home_panel.zip`**, not the manually
+extractable `home-panel-ha.zip`. It extracts into the component folder itself;
+our builder supports both layouts and bundles the same pinned core in each.
+An unbuilt default branch is not a supported production installation.
+
+No public repository, release or catalog submission has been created by this
+preparation. Pairing requires firmware exposing the negotiated identity and
+capabilities contract; merely installing the integration does not add firmware
+features or enable device writes. See [compatibility](docs/CORE_CONTRACT.md).
 
 ## Development And Tests
 
@@ -44,6 +67,7 @@ python3.14 -m venv .venv
 make core-install CORE_WHEEL=/path/to/home_panel_core-0.1.0-py3-none-any.whl
 make test CORE_WHEEL=/path/to/home_panel_core-0.1.0-py3-none-any.whl
 make release CORE_WHEEL=/path/to/home_panel_core-0.1.0-py3-none-any.whl
+make marketplace CORE_WHEEL=/path/to/home_panel_core-0.1.0-py3-none-any.whl
 ```
 
 The tests use actual HA 2026.11 fixtures, synthetic transport and temporary
@@ -58,15 +82,54 @@ retain administrator authorization, bounded validation and exact-original guards
 ## Roadmap And Docs
 
 Current functionality and deployment limits are documented in `docs/HA_*.md`.
-Next: HA entity/area selection, richer editor families, history and guarded
+The [action entity picker](docs/HA_ENTITY_CATALOG.md) supports registry/state
+search with domain/area filters without contacting ESP32.
+The [change summary](docs/HA_DRAFT_CHANGES.md) compares a local draft with its
+original or observed HA checkpoint independently of Save and validation.
+The [bounded history](docs/HA_DRAFT_HISTORY.md) keeps up to three previous
+checkpoints and opens them as unsaved drafts without changing the current one.
+The [navigation guard](docs/HA_NAVIGATION.md) protects unsaved drafts, unfinished
+fields and raw-check JSON, with explicit warnings for unsupported browsers.
+Next: capability-aware selection for richer editor families and guarded
 device deployment. Host model checks, HA checkpoint Save, device validation,
 SD-candidate Save and Apply remain independent operations.
 
 The source subtree history comes from `esp32panel` commit `b72b70f` (2026-11-07).
 The original firmware history is unchanged. Shared library history continues in
-`home-panel-core`. Configure the new repository's own origin before publishing;
-the firmware origin is intentionally not reused.
+`home-panel-core`. This repository's origin is prepared as
+`https://github.com/int0x19/home-panel-ha.git`; the firmware origin is not reused.
 
 Split acceptance: 121 source-integration tests and 129 release-bundle tests
 pass on HA 2026.11, including browser checks and offline dependency loading.
 These are host tests, not installed-device or full production-HA acceptance.
+
+Action catalog acceptance: 142 tests pass on HA 2026.11, including registry/area
+filters, authenticated boundaries, offline selection and responsive browser checks.
+
+Change-summary acceptance: 169 tests pass on HA 2026.11, including structural
+comparison, shared-worker limits and independent storage/validation state.
+
+History acceptance: 195 tests pass on HA 2026.11, including format-1 read-only
+access, explicit format-2 publication, bounded retention and two-browser unsaved
+restoration/conflict checks. Storage upgrade/downgrade limits are documented in
+[HA draft history](docs/HA_DRAFT_HISTORY.md).
+
+Navigation acceptance: **196 tests** pass on HA 2026.11, including actual
+installed frontend/router/sidebar/icons at mobile/desktop widths, dirty
+Back/settings/sidebar cancellation, accepted discard/remount and listener
+cleanup. The five existing upstream deprecations remain. Browser policy,
+forced background teardown and Chromium's repeated programmatic Forward
+limitation are recorded in [navigation protection](docs/HA_NAVIGATION.md).
+No ESP32 firmware, physical SD or household action is involved.
+
+Marketplace preparation acceptance (2026-11-16): **200 tests pass** on HA
+2026.11.0, including source/browser checks, deterministic manual/Marketplace
+archives, bundled-only imports and both license copies. Five upstream
+deprecation warnings remain. Remote hassfest/HACS checks and an actual
+Marketplace installation still require the GitHub repositories and release;
+these have not been published or tested against a real HA installation here.
+
+## License
+
+Apache-2.0; see [LICENSE](LICENSE). Copyright 2026 Denis and contributors.
+The Lucide-derived brand icon retains its ISC notice in `brand/LICENSE.txt`.

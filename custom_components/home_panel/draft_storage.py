@@ -9,7 +9,9 @@ import secrets
 from typing import Any
 
 from homeassistant.core import HomeAssistant
+from homeassistant.helpers.json import prepare_save_json
 from homeassistant.helpers.storage import Store
+from homeassistant.util import dt as dt_util
 
 from .const import DOMAIN
 from ._core import encode_document
@@ -20,7 +22,10 @@ from ._core import (
 
 DATA_KEY = DOMAIN + "_drafts"
 MAX_STORAGE_BYTES = 512 * 1024
+MAX_HISTORY_ENTRIES = 3
+MAX_HISTORY_BYTES = 256 * 1024
 MAX_GENERATION = 2**53 - 1
+STORAGE_VERSION = 2
 _ID = re.compile(r"[a-z_][a-z0-9_]{0,63}")
 _ENVELOPE = {"format", "schema_version", "revision", "requires", "panel", "style", "rooms", "views", "attention"}
 _CAPS = {"schema_versions", "features", "widget_types", "room_kinds", "display", "limits", "validation",
@@ -46,6 +51,10 @@ class DraftInvalid(DraftError):
 
 class DraftStorageError(DraftError):
     code = "draft_storage_error"
+
+
+class DraftHistoryMissing(DraftError):
+    code = "draft_history_missing"
 
 
 def _text(value: Any) -> bytes:
@@ -85,6 +94,14 @@ def _envelope(data: bytes) -> dict:
     return value
 
 
+def parse_draft_document(document: str) -> dict:
+    """Reuse the checkpoint framing guard without claiming model validation."""
+    try:
+        return _envelope(_text(document))
+    except (ValueError, TypeError, KeyError, ProtocolError, RecursionError):
+        raise DraftInvalid from None
+
+
 def _capabilities(value: Any) -> dict:
     if not isinstance(value, dict) or set(value) != _CAPS or len(encode_document(value)) > MAX_METADATA_BYTES:
         raise DraftInvalid
@@ -107,7 +124,7 @@ def _capabilities(value: Any) -> dict:
 def prepare_record(document: str, original: dict, capabilities: dict) -> dict:
     """Checkpoint unvalidated model text; original digest is integrity, not attestation."""
     try:
-        model = _envelope(_text(document))
+        model = parse_draft_document(document)
         caps = _capabilities(capabilities)
         if not isinstance(original, dict) or set(original) != {"source", "revision", "sha256", "document"}:
             raise DraftInvalid
@@ -141,10 +158,63 @@ def _read(path: str, key: str) -> dict | None:
         return None
     value = json_object(raw, MAX_STORAGE_BYTES)
     if (set(value) != {"version", "minor_version", "key", "data"} or
-            type(value["version"]) is not int or value["version"] != 1 or
+            type(value["version"]) is not int or value["version"] not in (1, STORAGE_VERSION) or
             type(value["minor_version"]) is not int or value["minor_version"] != 1 or value["key"] != key):
         raise DraftStorageError
-    return value["data"]
+    return value
+
+
+def _record_revision(record: dict | None) -> int:
+    if record is None:
+        return 0
+    return max(parse_draft_document(record["document"])["revision"], record["original"]["revision"])
+
+
+def _validate_record(record: Any) -> None:
+    if not isinstance(record, dict) or set(record) != {"document", "sha256", "original", "capabilities"}:
+        raise DraftStorageError
+    if prepare_record(record["document"], record["original"], record["capabilities"]) != record:
+        raise DraftStorageError
+
+
+def _enclosing_store(key: str, state: dict) -> dict:
+    return {"version": STORAGE_VERSION, "minor_version": 1, "key": key, "data": state}
+
+
+def _prepare_next(state: dict, record: dict | None, key: str, saved_at: int) -> dict:
+    """Trim oldest history in the executor before one atomic Store publication."""
+    if record is not None:
+        _validate_record(record)
+    history = deepcopy(state["history"]) if record is not None else []
+    if record is not None and state["record"] is not None and record != state["record"]:
+        history.insert(0, {"generation": state["generation"], "saved_at": state["saved_at"],
+                           "record": deepcopy(state["record"])})
+    del history[MAX_HISTORY_ENTRIES:]
+    payload = {"panel_id": state["panel_id"], "generation": state["generation"] + 1,
+               "record": deepcopy(record), "saved_at": saved_at if record is not None else None,
+               "document_high_water": max(state["document_high_water"], _record_revision(record)), "history": history}
+    while True:
+        candidate = {**payload, "checksum": _checksum(payload)}
+        try:
+            if len(encode_document(history)) > MAX_HISTORY_BYTES:
+                raise DraftStorageError
+            # Use the public serializer used by Store, including its whitespace
+            # and escaping, then the same byte/depth/node guard as disk reads.
+            _, serialized = prepare_save_json(_enclosing_store(key, candidate))
+            raw = serialized.encode("utf-8") if isinstance(serialized, str) else serialized
+            json_object(raw, MAX_STORAGE_BYTES)
+            return candidate
+        except (ProtocolError, DraftStorageError):
+            if not history:
+                raise DraftStorageError from None
+            history.pop()
+
+
+def _history_metadata(state: dict) -> list[dict]:
+    return [{"generation": item["generation"], "saved_at": item["saved_at"],
+             "document_revision": parse_draft_document(item["record"]["document"])["revision"],
+             "sha256": item["record"]["sha256"], "bytes": len(item["record"]["document"].encode("utf-8"))}
+            for item in state["history"]]
 
 
 class DraftRepository:
@@ -153,29 +223,60 @@ class DraftRepository:
         self.panel_id = device_identifier(panel_id)
         if not re.fullmatch(r"[A-Za-z0-9_-]{1,64}", entry_id):
             raise DraftStorageError
-        self.store: Store[dict] = Store(hass, 1, f"{DOMAIN}.draft.{entry_id}", private=True,
+        self.store: Store[dict] = Store(hass, STORAGE_VERSION, f"{DOMAIN}.draft.{entry_id}", private=True,
                                          atomic_writes=True, serialize_in_event_loop=False)
+        self._legacy_store: Store[dict] = Store(hass, 1, self.store.key, private=True,
+                                               atomic_writes=True, serialize_in_event_loop=False)
         self._session = secrets.token_hex(16)
         self._state = None
+        self._disk = None
+        self._history = []
         self._observed_generation = 0
+        self._observed_version = 0
+        self._observed_high_water = 0
         self._lock = asyncio.Lock()
         self._pending = None
         self._removed = False
 
-    def _validate_state(self, state: Any) -> dict:
-        if not isinstance(state, dict) or set(state) != {"panel_id", "generation", "record", "checksum"}:
+    def _validate_state(self, state: Any, version: int = STORAGE_VERSION) -> dict:
+        fields = {"panel_id", "generation", "record", "checksum"}
+        if version == STORAGE_VERSION:
+            fields |= {"history", "saved_at", "document_high_water"}
+        if not isinstance(state, dict) or set(state) != fields:
             raise DraftStorageError
         payload = {k: v for k, v in state.items() if k != "checksum"}
         integer(state["generation"], "HA draft generation", 0, MAX_GENERATION)
         if state["panel_id"] != self.panel_id or state["checksum"] != _checksum(payload):
             raise DraftStorageError
         if state["record"] is not None:
-            record = state["record"]
-            if not isinstance(record, dict) or set(record) != {"document", "sha256", "original", "capabilities"}:
+            if not state["generation"]:
                 raise DraftStorageError
-            expected = prepare_record(record["document"], record["original"], record["capabilities"])
-            if expected != record:
+            _validate_record(state["record"])
+        high_water = _record_revision(state["record"])
+        if version == 1:
+            payload.update(history=[], saved_at=None, document_high_water=high_water)
+            return {**payload, "checksum": _checksum(payload)}
+        integer(state["document_high_water"], "model revision high water", 0, 0xFFFFFFFF)
+        if state["record"] is None:
+            if state["saved_at"] is not None or state["history"]:
                 raise DraftStorageError
+        else:
+            integer(state["saved_at"], "checkpoint time", 0, MAX_GENERATION)
+        history = state["history"]
+        if not isinstance(history, list) or len(history) > MAX_HISTORY_ENTRIES or len(encode_document(history)) > MAX_HISTORY_BYTES:
+            raise DraftStorageError
+        previous = state["generation"]
+        for item in history:
+            if not isinstance(item, dict) or set(item) != {"generation", "saved_at", "record"}:
+                raise DraftStorageError
+            integer(item["generation"], "history generation", 1, previous - 1)
+            previous = item["generation"]
+            if item["saved_at"] is not None:
+                integer(item["saved_at"], "history time", 0, MAX_GENERATION)
+            _validate_record(item["record"])
+            high_water = max(high_water, _record_revision(item["record"]))
+        if state["document_high_water"] < high_water:
+            raise DraftStorageError
         return state
 
     async def _load(self) -> None:
@@ -186,29 +287,57 @@ class DraftRepository:
             if before is None:
                 if self._observed_generation:
                     raise DraftStorageError
-                payload = {"panel_id": self.panel_id, "generation": 0, "record": None}
+                payload = {"panel_id": self.panel_id, "generation": 0, "record": None,
+                           "history": [], "saved_at": None, "document_high_water": 0}
                 self._state = {**payload, "checksum": _checksum(payload)}
+                self._disk = None
+                self._history = []
                 return
-            await self.hass.async_add_executor_job(self._validate_state, before)
-            if before["generation"] < self._observed_generation:
+            normalized = await self.hass.async_add_executor_job(self._validate_state, before["data"], before["version"])
+            if (normalized["generation"] < self._observed_generation or before["version"] < self._observed_version or
+                    normalized["document_high_water"] < self._observed_high_water):
                 raise DraftStorageError
-            loaded = await self.store.async_load()
-            if loaded != before:
+            # Matching Store versions avoid HA's automatic migrate-and-save on
+            # read. Legacy data is upgraded only by an explicit Save/Delete.
+            reader = self._legacy_store if before["version"] == 1 else self.store
+            loaded = await reader.async_load()
+            if loaded != before["data"]:
                 raise DraftStorageError
-            self._state = before
-            self._observed_generation = before["generation"]
+            self._state, self._disk = normalized, before
+            self._history = await self.hass.async_add_executor_job(_history_metadata, normalized)
+            self._observed_generation = normalized["generation"]
+            self._observed_version = before["version"]
+            self._observed_high_water = normalized["document_high_water"]
         except (OSError, ValueError, TypeError, KeyError, ProtocolError, DraftInvalid):
             raise DraftStorageError from None
 
     def _snapshot(self) -> dict:
         return {"version": 1, "generation": self._state["generation"],
                 "revision": f"{self._session}:{self._state['generation']}",
-                "record": deepcopy(self._state["record"]), "model_validated": False, "deployment_ready": False}
+                "record": deepcopy(self._state["record"]), "saved_at": self._state["saved_at"],
+                "history": deepcopy(self._history), "document_high_water": self._state["document_high_water"],
+                "history_limits": {"entries": MAX_HISTORY_ENTRIES, "bytes": MAX_HISTORY_BYTES},
+                "model_validated": False, "deployment_ready": False}
 
     async def get(self) -> dict:
         async with self._lock:
             await self._load()
             return self._snapshot()
+
+    async def history(self, revision: str, generation: int) -> dict:
+        if type(generation) is not int or not 1 <= generation <= MAX_GENERATION:
+            raise DraftInvalid
+        async with self._lock:
+            await self._load()
+            if revision != f"{self._session}:{self._state['generation']}":
+                raise DraftConflict
+            for item in self._state["history"]:
+                if item["generation"] == generation:
+                    return {"version": 1, "revision": revision, "generation": self._state["generation"],
+                            "history_generation": generation, "saved_at": item["saved_at"],
+                            "record": deepcopy(item["record"]), "document_high_water": self._state["document_high_water"],
+                            "model_validated": False, "deployment_ready": False}
+            raise DraftHistoryMissing
 
     async def write(self, revision: str, record: dict | None) -> dict:
         if self._pending is not None:
@@ -237,22 +366,26 @@ class DraftRepository:
                 raise DraftConflict
             if self._state["generation"] >= MAX_GENERATION:
                 raise DraftStorageError
-            payload = {"panel_id": self.panel_id, "generation": self._state["generation"] + 1, "record": deepcopy(record)}
-            next_state = {**payload, "checksum": _checksum(payload)}
+            next_state = await self.hass.async_add_executor_job(_prepare_next, self._state, record, self.store.key,
+                                                               int(dt_util.utcnow().timestamp() * 1000))
             await self.hass.async_add_executor_job(self._validate_state, next_state)
             try:
                 # Detect out-of-band modification/deletion before overwriting it.
                 disk = await self.hass.async_add_executor_job(_read, self.store.path, self.store.key)
-                if disk != self._state and not (disk is None and self._state["generation"] == 0):
+                if disk != self._disk:
                     raise DraftStorageError
                 await self.store.async_save(next_state)
                 actual = await self.hass.async_add_executor_job(_read, self.store.path, self.store.key)
-                if actual != next_state:
+                if actual != _enclosing_store(self.store.key, next_state):
                     raise DraftStorageError
             except (OSError, ValueError, TypeError, KeyError, ProtocolError, DraftInvalid):
                 raise DraftStorageError from None
             self._state = next_state
+            self._disk = actual
+            self._history = await self.hass.async_add_executor_job(_history_metadata, next_state)
             self._observed_generation = next_state["generation"]
+            self._observed_version = STORAGE_VERSION
+            self._observed_high_water = next_state["document_high_water"]
             return self._snapshot()
 
     async def remove(self) -> None:
@@ -277,4 +410,4 @@ async def remove_repository(hass: HomeAssistant, entry) -> None:
         await owner.remove()
         owners.pop(entry.entry_id, None)
     elif re.fullmatch(r"[A-Za-z0-9_-]{1,64}", entry.entry_id):
-        await Store(hass, 1, f"{DOMAIN}.draft.{entry.entry_id}").async_remove()
+        await Store(hass, STORAGE_VERSION, f"{DOMAIN}.draft.{entry.entry_id}").async_remove()

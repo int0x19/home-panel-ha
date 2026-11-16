@@ -79,7 +79,7 @@ async def test_list_status_and_credential_redaction(hass, ws, entry, panel):
     assert all(method == "GET" for method, *_ in panel.calls)
 
 
-@pytest.mark.parametrize("operation", ["panels", "status", "import", "validate"])
+@pytest.mark.parametrize("operation", ["panels", "status", "import", "validate", "entities"])
 async def test_non_admin_is_rejected_before_any_device_io(connect_ws, hass_read_only_access_token, entry, panel, operation):
     ws = await connect_ws(access_token=hass_read_only_access_token)
     data = {"type": PREFIX + operation}
@@ -101,7 +101,8 @@ def test_anonymous_guard_rejects_before_scheduling_io(hass, entry, panel):
     connection = Mock(user=None)
     before = len(panel.calls)
     for handler in (panel_ws.ws_panels, panel_ws.ws_status, panel_ws.ws_import, panel_ws.ws_validate,
-                    panel_ws.ws_draft_get, panel_ws.ws_draft_save, panel_ws.ws_draft_delete, panel_ws.ws_model_check):
+                    panel_ws.ws_draft_get, panel_ws.ws_draft_save, panel_ws.ws_draft_delete, panel_ws.ws_model_check,
+                    panel_ws.ws_entities, panel_ws.ws_model_changes, panel_ws.ws_draft_history_get):
         with pytest.raises(Unauthorized):
             handler(hass, connection, {"id": 1, "entry_id": entry.entry_id})
     assert len(panel.calls) == before

@@ -1,0 +1,107 @@
+name: Validate integration
+
+on:
+  push:
+  pull_request:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  hassfest:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v7
+        with:
+          persist-credentials: false
+      - uses: home-assistant/actions/hassfest@master
+
+  marketplace:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: hacs/action@main
+        with:
+          category: integration
+          comment: false
+
+  package:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v7
+        with:
+          persist-credentials: false
+      - uses: actions/setup-python@v7
+        with:
+          python-version: '3.14'
+      - name: Read immutable core source
+        id: core
+        run: |
+          python - <<'PY'
+          import json, os, re, runpy
+          from pathlib import Path
+          lock = json.loads(Path('core-source.json').read_text())
+          assert re.fullmatch(r'[0-9a-f]{40}', lock['revision'])
+          assert re.fullmatch(r'[A-Za-z0-9_.-]+/[A-Za-z0-9_.-]+', lock['repository'])
+          assert lock['version'] == runpy.run_path('custom_components/home_panel/const.py')['CORE_VERSION']
+          with open(os.environ['GITHUB_OUTPUT'], 'a') as stream:
+              for key in ('revision', 'repository'):
+                  print(f'{key}={lock[key]}', file=stream)
+          PY
+      - uses: actions/checkout@v7
+        with:
+          repository: ${{ steps.core.outputs.repository }}
+          ref: ${{ steps.core.outputs.revision }}
+          path: build/core-source
+          persist-credentials: false
+      - name: Build pinned wheel and install HA test requirements
+        run: |
+          python -m pip install setuptools wheel
+          python -m pip wheel --no-deps --no-build-isolation --wheel-dir dist/core ./build/core-source
+          python -m pip install --no-deps dist/core/*.whl
+          python -m pip install -r requirements-test.txt
+      - name: Test source and offline installation layouts
+        run: |
+          export HOME_PANEL_CORE_WHEEL="$(find "$PWD/dist/core" -name '*.whl')"
+          python -m pytest -c tests/ha_integration/pytest.ini tests/ha_integration
+          make release marketplace PYTHON=python CORE_WHEEL="$HOME_PANEL_CORE_WHEEL"
+      - name: Verify release tag and write asset checksums
+        env:
+          REF_TYPE: ${{ github.ref_type }}
+          RELEASE_TAG: ${{ github.ref_name }}
+        run: |
+          python - <<'PY'
+          import json, os
+          from pathlib import Path
+          version = json.loads(Path('custom_components/home_panel/manifest.json').read_text())['version']
+          if os.environ['REF_TYPE'] == 'tag':
+              assert os.environ['RELEASE_TAG'] == version, 'Tag must match manifest version exactly'
+          PY
+          cd dist
+          sha256sum home_panel.zip home-panel-ha.zip > SHA256SUMS
+      - uses: actions/upload-artifact@v7
+        with:
+          name: integration-release
+          path: |
+            dist/home_panel.zip
+            dist/home-panel-ha.zip
+            dist/SHA256SUMS
+          if-no-files-found: error
+
+  draft-release:
+    if: github.event_name == 'push' && github.ref_type == 'tag'
+    needs: package
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+    steps:
+      - uses: actions/download-artifact@v8
+        with:
+          name: integration-release
+          path: dist
+      - name: Create unpublished release for owner review
+        env:
+          GH_TOKEN: ${{ github.token }}
+          GH_REPO: ${{ github.repository }}
+          RELEASE_TAG: ${{ github.ref_name }}
+        run: gh release create "$RELEASE_TAG" dist/* --draft --verify-tag --title "$RELEASE_TAG" --generate-notes

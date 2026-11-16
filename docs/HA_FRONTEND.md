@@ -117,10 +117,15 @@ tests** and **six standalone HTTP tests**, for 117 targeted checks, not whole-re
 or branch coverage. The browser case is included in the 74, not counted again
 for each screenshot/assertion.
 
-This is **component-browser acceptance**, not a complete installed HA shell
-session: the isolated fixture uses fallback icon glyphs; HA supplies `ha-icon`
-in production. Full HA shell/icon/sidebar/companion-mobile behavior, physical
-pairing, ESP32 memory/latency and long-duration acceptance remain open. No real
+Those initial checks are **component-browser acceptance**: the isolated fixture
+uses fallback icon glyphs, while HA supplies `ha-icon` in production. The later
+[navigation acceptance](HA_NAVIGATION.md) also loads the installed HA 2026.11
+frontend with actual auth, icons, sidebar, router and standard backend APIs,
+without the property adapter. It covers dirty Settings/sidebar/Back cancellation,
+accepted discard, clean remount and 390/1280px screenshots. Broader browser and
+companion-mobile behavior, physical pairing, ESP32 memory/latency and long-duration
+acceptance remain open, including the documented Chromium Forward limitation.
+No real
 HA/panel connections, firmware compilation/OTA, actuator commands or physical
 SD writes occur in these tests. Existing upstream deprecations and the separate
 [pre-auth WS probe limitation](HA_READ_CHECK_API.md#verification-notes) are not
@@ -141,7 +146,8 @@ alternate integration, protocol implementation or device editor.
 
 ## Next
 
-Extend the accepted checkpoint editor with registry selection, history,
-templates and Linux preview integration. Keep exact import artifacts separate.
-Full HA registry selection, ownership, candidate/Apply
+Extend the accepted action registry picker/checkpoint/history editor with
+capability-aware selection for other families, templates and Linux preview
+integration. Keep exact import artifacts separate.
+Broader HA registry selection, ownership, candidate/Apply
 and rollout to other runtime widget families remain their own roadmap gates.

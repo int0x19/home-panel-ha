@@ -2,11 +2,12 @@
   "domain": "home_panel",
   "name": "Home Panel Configuration",
   "after_dependencies": ["frontend"],
-  "codeowners": [],
+  "codeowners": ["@int0x19"],
   "config_flow": true,
-  "documentation": "https://int0x19.mooo.com:53943/int0x19/esp32panel",
+  "documentation": "https://github.com/int0x19/home-panel-ha",
   "integration_type": "hub",
   "iot_class": "local_polling",
+  "issue_tracker": "https://github.com/int0x19/home-panel-ha/issues",
   "requirements": [],
   "version": "0.1.0"
 }

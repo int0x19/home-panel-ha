@@ -85,6 +85,28 @@ input:focus-visible { outline: 2px solid var(--primary-color, #00796b); outline-
 .draft-widget-main strong { font-weight: 500; }
 .draft-widget-main small { color: var(--secondary-text-color, #58636b); }
 .draft-widget-tools { display: flex; gap: 4px; flex: 0 0 auto; }
+.entity-field { display: flex; align-items: end; gap: 8px; min-width: 0; }
+.entity-field label { flex: 1; min-width: 0; }
+.entity-query { grid-column: 1 / -1; }
+#entity-picker { width: 600px; max-width: calc(100% - 24px); max-height: calc(100% - 24px); padding: 20px; }
+#entity-picker h2 { margin-bottom: 12px; }
+#entity-search-form { padding-top: 0; }
+#entity-results { min-height: 48px; max-height: 36vh; overflow-y: auto; }
+.entity-result { display: flex; width: 100%; gap: 12px; justify-content: start; text-align: left; border: 0; border-bottom: 1px solid var(--divider-color, #ccd2d5); border-radius: 0; padding: 12px 4px; }
+.entity-result span { display: flex; flex-direction: column; min-width: 0; }
+.entity-result strong, .entity-result small { overflow-wrap: anywhere; }
+.entity-result strong { font-size: 14px; font-weight: 500; }
+.entity-result small { color: var(--secondary-text-color, #58636b); }
+.entity-paging { justify-content: center; }
+.draft-change-items { list-style: none; margin: 0; padding: 0; max-height: 360px; overflow-y: auto; }
+.draft-change-items li { display: grid; gap: 3px; padding: 9px 0; border-bottom: 1px solid var(--divider-color, #ccd2d5); overflow-wrap: anywhere; }
+.draft-change-items strong { font-size: 13px; font-weight: 500; }
+.draft-change-items small { color: var(--secondary-text-color, #58636b); }
+.draft-history-row { display: grid; grid-template-columns: minmax(0, 1fr) auto; align-items: center; gap: 12px; padding: 10px 0; border-bottom: 1px solid var(--divider-color, #ccd2d5); }
+.draft-history-row > div { display: grid; gap: 3px; min-width: 0; overflow-wrap: anywhere; }
+.draft-history-row strong { font-size: 13px; font-weight: 500; }
+.draft-history-row time, .draft-history-row small { color: var(--secondary-text-color, #58636b); font-size: 12px; }
+#draft-history-status { overflow-wrap: anywhere; }
 /* HA's sidebar can narrow the panel while the browser viewport stays wide. */
 @container (max-width: 600px) {
   header { padding: 0 8px; }
@@ -111,4 +133,6 @@ input:focus-visible { outline: 2px solid var(--primary-color, #00796b); outline-
   .draft-widget { flex-wrap: wrap; }
   .draft-widget-main { flex-basis: calc(100% - 4px); }
   .draft-widget-tools { margin-left: auto; }
+  .draft-history-row { grid-template-columns: minmax(0, 1fr); gap: 8px; }
+  .draft-history-row button { justify-self: start; max-width: 100%; }
 }

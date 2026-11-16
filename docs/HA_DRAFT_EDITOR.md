@@ -11,10 +11,15 @@ Generated production `panel.yaml` rooms are unchanged.
 **Save in HA** explicitly retains one committed draft plus its exact original
 and capability snapshot per panel. Selecting that panel again restores the
 checkpoint, even if the panel integration is currently offline/unloaded.
-There is no autosave, browser storage, revision history or automatic cross-tab
-merge. Unsaved edits/uncommitted fields/raw-check input still disappear on
-detach/reload; browser close/reload requests a warning where supported, but
-HA's internal sidebar navigation has no blanket dirty-page guard.
+Up to three [previous checkpoints](HA_DRAFT_HISTORY.md) can be explicitly opened
+as unsaved drafts. There is no autosave, browser storage or automatic cross-tab
+merge. [Unsaved-navigation protection](HA_NAVIGATION.md) now requests a discard
+decision for cancelable same-document departures, including HA sidebar/settings
+and browser Back/Forward in supported browsers. Cancel retains URL/history and
+all local fields; confirm leaves without saving. Reload/full-document departures
+retain the browser warning. Unsaved data still disappears on confirmed departure,
+forced teardown or reload; older browsers explicitly warn about limited history
+protection. Only explicit checkpoints survive a fresh component/session.
 
 ## Workflow
 
@@ -33,9 +38,12 @@ HA's internal sidebar navigation has no blanket dirty-page guard.
    `randomUUID` is unavailable outside a secure context.
 5. Select entity, label, bundled icon, activation (`tap`/`hold`/`confirm`) and
    enabled state. Script Stop is offered only with the negotiated feature;
-   scenes/buttons never receive Stop settings. Entity suggestions use existing
-   `hass.states` for `script`, `scene`, `button` and `input_button`; no additional
-   HA state connection or device query is opened. Entity IDs may also be typed.
+   scenes/buttons never receive Stop settings. The magnifier opens an
+   authenticated HA registry/state picker for `script`, `scene`, `button` and
+   `input_button`, with name/ID search, domain/area filters and explicit paging.
+   Entity IDs may also be typed; up to 50 existing `hass.states` suggestions
+   remain available without a catalog request. No extra state connection,
+   device query or service call is opened.
 6. Commit or cancel uncommitted fields before export/validation. **Export draft**
    downloads an independent compact JSON document. **In HA** invokes the full
    shared Python model validator without contacting ESP32, even offline.
@@ -44,13 +52,22 @@ HA's internal sidebar navigation has no blanket dirty-page guard.
    neither authorizes deployment. See [model validation](HA_MODEL_VALIDATION.md).
 7. **Save in HA** creates a local HA checkpoint, without calling ESP32 or
    claiming validation. **Load HA draft** replaces local edits only after a
-   discard decision. **Delete HA draft** explicitly clears the stored checkpoint
-   and local model, not the device or its SD files.
+   discard decision. **Delete HA draft** explicitly clears the stored checkpoint,
+   its bounded history and local model, not the device or its SD files.
 8. A second editor's save causes a version conflict instead of overwriting it.
    Local edits remain exportable; Save stays disabled until the current HA
    checkpoint is loaded. A lost reply or HA reconnect similarly requires a
    read, with no automatic save retry. Restored documents are **Not checked**,
    regardless of an earlier browser's transient validation result.
+9. **Compare** shows a bounded [change summary](HA_DRAFT_CHANGES.md) against the
+   imported original or fresh observed HA checkpoint. It does not validate or
+   save anything. Reports become previous after edits/base changes; HA checkpoint
+   conflicts require an explicit load before comparing against that checkpoint.
+10. **HA history / Open as draft** reads one previous version under the current
+    checkpoint token. After confirmation it restores identities/settings with a
+    revision above known high-water marks, clears transient reports and marks the
+    model unsaved. It does not overwrite the current checkpoint until Save in HA;
+    stale tokens or a failed local preflight preserve existing local edits.
 
 Unsupported widgets/unknown action settings remain read-only and are preserved
 on unrelated room edits/reordering. Mixed rooms are not assigned an invented
@@ -90,9 +107,9 @@ Local draft export is standard compact browser JSON; HA checkpoints now use the
 same pure Python canonical encoder as the host tools. This is not RFC 8785 or a
 claim that JavaScript preserves the numeric spelling of an imported original.
 That original remains a separate exact artifact. The full Python model validator
-now lives in the companion's pure package and is used by the host tools too,
-without requiring HA or reading templates during validation. History, entity/area
-registry selection, ownership and candidate/Apply are pending.
+now lives in the independent `home-panel-core` package and is used by the host
+tools too, without requiring HA or reading templates during validation.
+Capability-aware selection for other widget families, ownership and candidate/Apply are pending.
 The installed device still needs the separately authorized prepared metadata
 firmware before real companion pairing; this stage does not bypass that gate.
 

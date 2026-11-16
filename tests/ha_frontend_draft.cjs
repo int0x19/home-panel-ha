@@ -34,6 +34,7 @@ module.exports = async function testDraft(page, output, original) {
   await page.locator('#draft-room-down').click();
   assert.deepEqual((await doc()).rooms.slice(0, 3).map(r => r.id), initialIds);
   await page.locator('#draft-add-action').click();
+  await require('./ha_frontend_entities.cjs')(page, output);
   assert.equal(await page.locator('#draft-entities option').count(), 2, 'Only allowlisted action domains');
   await page.locator('#draft-entity').fill('scene.evening');
   await page.locator('#draft-entity').press('Tab');
@@ -52,7 +53,8 @@ module.exports = async function testDraft(page, output, original) {
   assert.equal(draft.rooms[0].widgets[0].id, widgetId, 'Moving actions preserves identity');
   assert.equal(draft.rooms.at(-1).widgets.length, 0);
   assert.equal(await page.locator('#document').textContent(), original, 'Original stays exact');
-  assert.equal(await page.evaluate(() => harness.calls.length), before, 'Edits make no WS/device requests');
+  assert.equal(await page.evaluate(() => harness.calls.filter(c => !c.type.endsWith('/entities')).length), before, 'Edits make no device requests');
+  await require('./ha_frontend_changes.cjs')(page, output);
   await page.locator('#draft-model-check').click();
   await until(() => !harness.element._busy);
   assert.match(await page.locator('#draft-model-status').textContent(), /HA model: Valid model/);
