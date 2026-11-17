@@ -1,5 +1,7 @@
 """Actual HA session -> loopback aiohttp -> synthetic device protocol."""
 
+import pytest
+
 from aiohttp import web
 
 from homeassistant.config_entries import SOURCE_USER, ConfigEntryState
@@ -10,6 +12,16 @@ from custom_components.home_panel import coordinator
 from custom_components.home_panel.const import CONF_ACCESS_KEY, CONF_URL, DOMAIN
 from custom_components.home_panel._core import AiohttpTransport
 from support import DEVICE_ID, TOKEN
+
+
+async def test_ha_client_keeps_candidate_upload_disabled(hass, monkeypatch):
+    monkeypatch.setattr(coordinator, "AiohttpTransport", AiohttpTransport)
+    client = coordinator.create_client(hass, {CONF_URL: "http://127.0.0.1:1", CONF_ACCESS_KEY: TOKEN}, DEVICE_ID)
+    # The shared library gaining Send must not implicitly enable HA writes.
+    for suffix in ("upload", "apply", "discard", "restore", "scan"):
+        with pytest.raises(ValueError, match="Unsupported panel request"):
+            await client._transport.request("POST", "/panel/runtime/api/" + suffix,
+                                            headers={}, body=b"{}", max_bytes=16384)
 
 
 async def test_setup_poll_and_unload_over_real_http(hass, panel, monkeypatch, aiohttp_server, socket_enabled, hass_ws_client):

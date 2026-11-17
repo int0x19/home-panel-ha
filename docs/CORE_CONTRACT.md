@@ -15,13 +15,13 @@ The same unpublished 0.1.2 now pins the subsequent core source that recognizes
 flash profile exposes sensors/status/groups and a configured combined source/
 subscription ceiling. HA reports the negotiated readings-preview scope; its
 source pin is recorded in `core-source.json`. Local maintenance storage is not
-HA-managed authority, and no Send/Apply method is added to the shared client.
+HA-managed authority. That readings-profile checkpoint added no Send/Apply method.
 The running panel and published Marketplace 0.1.1 remain unchanged.
 
 The next core source lock adds typed `write-base.v1` status and snapshot
 freshness checks. Flash maintenance writes require the device-issued base,
-rechecked under the NVS transaction lease, but the shared client/HA still have
-no write methods. Read/check imports reject changed bases at the same numeric
+rechecked under the NVS transaction lease. At that checkpoint the shared client
+and HA had no write methods. Read/check imports reject changed bases at the same numeric
 generation and require an explicit fresh status, without replay. This metadata
 stays on the backend; no frontend-supplied guard can claim an owner or permission.
 Persistent ownership/scoped credentials and explicit handover remain pending.
@@ -42,6 +42,29 @@ base/session/generation/digest conflicts. The private journal stays inactive;
 next implement minimal explicit Send-candidate, then Apply/restart. This is not
 exclusive ownership and does not enable any currently false deployment flag.
 No package version, functional core pin, frontend auth or device firmware changes.
+
+## Candidate Send Library Boundary
+
+The current source lock advances to core functional commit
+`7d8189d10c3fa464c18306965fcd9d43b0c5e705`, still unpublished development 0.1.2.
+Its explicit `send_candidate` validates canonical JSON against negotiated limits,
+checks the original imported snapshot, submits existing flash Upload once, then
+verifies exact exported bytes and unchanged active/backup/loaded state. Stale
+imports and different candidates conflict; uncertain writes are never replayed.
+An identical candidate is checked without a flash write. No Apply is implemented.
+
+The core HTTP transport requires `allow_candidate_upload=True` for Upload.
+This integration deliberately retains its default read/check-only transport and
+has no Send command yet. Next connect Send to its existing administrator backend
+and editor, keeping HA-local checkpoint Save distinct from device Upload.
+
+Consumer acceptance on HA 2026.11.0: 215 component/browser tests pass, including
+the default read-only transport regression and deterministic self-contained
+manual/Marketplace ZIP checks. All 22 wheel source/assets match the functional
+commit above; 66 installed-core tests pass. Firmware acceptance adds 84 scoped
+flash HTTP/NVS/client and 25 compatibility checks, with two optional sanitizer
+skips. This is not publication, ESP32 OTA or physical acceptance. Package versions
+stay at unpublished 0.1.2; published Marketplace 0.1.1 remains unchanged.
 
 ## Prepared Capabilities Extension
 

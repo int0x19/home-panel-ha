@@ -7,15 +7,26 @@ shared model/protocol work belongs to home-panel-core.
 ## Current Checkpoint (2026-11-17)
 
 Scope correction: use existing HA administrator permissions, the existing panel
-access credential and ESPHome Native API for states/actions. The next delivery
-is explicit bounded Send-candidate from the shared client and existing HA editor,
-then Apply/restart with observed activation. Persistent multi-controller
+access credential and ESPHome Native API for states/actions. The shared client
+now supports guarded Send-candidate; the next delivery is its explicit HA
+administrator/backend/editor path, then Apply/restart with observed activation. Persistent multi-controller
 ownership, scoped-key rotation and special receipt credentials are deferred,
 not prerequisites. Keep exact imported-base/session/generation/digest guards,
 independent validation, no automatic replay and known-good recovery. The
 experimental owner HTTP prototype was not accepted, committed or deployed;
 working firmware source remains at the private inactive backend. This correction
 supersedes ownership-first sequencing in the historical checkpoints below.
+
+The candidate Send library step pins functional core
+`7d8189d10c3fa464c18306965fcd9d43b0c5e705`. It reuses the current Upload endpoint,
+original imported snapshot, one operation lock and exact readback; it never
+applies or automatically retries. The HA transport remains read/check-only,
+with a regression test that refuses mutation routes before network I/O. No
+Send button/command, managed flags, publication or physical acceptance is implied.
+The pinned wheel passes 66 core tests and all 215 HA/component-browser tests,
+including deterministic bundled archives and the read-only transport boundary.
+Firmware/native acceptance passes 84 flash HTTP/NVS/client and 25 compatibility
+checks, with two optional sanitizer skips. No dependency upgrade or OTA.
 
 Development 0.1.2 adds the [numeric-sensor/group draft slice](docs/HA_SENSOR_DRAFT.md)
 using core 0.1.2. Local acceptance passes 212 HA/browser tests, including actual
@@ -143,7 +154,8 @@ rooms and two-editor conflicts. Firmware changes and real actions are not needed
 
 #### 3.8.4. Guarded deployment, activation and recovery
 
-- [ ] Implement explicit Check, Send candidate, Apply/restart, Discard and recovery through the existing bounded main-loop job API, starting with Send only. Reuse HA administrator authorization and the existing panel credential; recheck device identity/session, exact imported base, flash generation, operation/document revisions and candidate digest. Do not activate owner records, add another auth system or infer write readiness from validation. Serialize per-panel jobs and bound polling without blocking HA's event loop; retain safe legacy SD compatibility separately.
+- [x] Prepare guarded candidate Send in shared core and pin its tested source; keep HA's default transport read/check-only until the administrator backend/editor path is accepted. No Apply or MCU changes in this library step.
+- [ ] Implement explicit Check, Send candidate, Apply/restart, Discard and recovery through the existing bounded main-loop job API, starting with HA Send only. Reuse HA administrator authorization and the existing panel credential; recheck device identity/session, exact imported base, flash generation, operation/document revisions and candidate digest. Do not activate owner records, add another auth system or infer write readiness from validation. Serialize per-panel jobs and bound polling without blocking HA's event loop; retain safe legacy SD compatibility separately.
 - [ ] Report draft, checked, saved candidate, applying, running, fallback and unknown-result states separately. After restart, reread identity/session, loaded source/revision/digest and renderer readiness before reporting success; HTTP 202, an upload receipt or a TCP reconnect is not proof of successful activation. Keep the pending first-frame/trial-confirmation work in 3.5 explicit.
 - [ ] Reconcile reconnect, HA restart, lost replies, expired receipts and concurrent local recovery by reading device state first. Never silently replay Apply, restore an older document or overwrite a newer one. Require explicit user conflict review; optional local/HA ownership transfer is deferred and must not block the single-credential workflow.
 - [ ] Keep a validated local document, previous-valid backup and compiled recovery path, plus the minimal local maintenance page. HA downtime must not prevent loading the cached UI; live readings/actions still depend on HA. Do not format SD, touch factory media or claim ordinary FatFs rename is power-loss atomic; carry the physical failure gates from 3.5 into release acceptance.
