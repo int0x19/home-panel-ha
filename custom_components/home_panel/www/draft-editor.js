@@ -429,6 +429,7 @@ class HomePanelDraft extends HTMLElement {
     if (!this._draft || this._context.busy || this._capsChanged()) return;
     try {
       this._draft = editDraft(this._draft, operation, this._caps);
+      this._candidateDocument = this._sent = null;
       this._version++; this._unsaved = true; this._validationFresh = false; this._error = ''; this._fields = false; this._editing = null;
       if (selectLast) this._room = this._draft.rooms.at(-1).id;
       if (!this._draft.rooms.some(r => r.id === this._room)) this._room = this._draft.rooms[0].id;
@@ -637,9 +638,7 @@ class HomePanelDraft extends HTMLElement {
     this.$('draft-status').textContent = [this._fields && this.t('pending'), this._context.sourceCurrent === false && this.t('changedSource'), this._capsChanged() && this.t('changedCaps'),
       'ESP32: ' + (this._validation ? `${stale ? this.t('previous') + ': ' : ''}${this.t(this._validation.valid ? 'accepted' : 'rejected')}` : this.t('notChecked'))].filter(Boolean).join(' \u00b7 ');
     this.$('draft-status').className = 'report ' + (this._validation && !stale ? this._validation.valid ? 'success' : 'warning' : 'muted');
-    this.$('draft-send-status').hidden = !this._sent;
-    this.$('draft-send-status').textContent = this._sent ? `${this.t('sentCandidate')} \u00b7 r${this._sent.revision} \u00b7 ${this._sent.sha256.slice(0, 12)}` : '';
-    this.$('draft-send-status').hidden = !this._sent;
+    this.$('draft-send-status').hidden = !this._sent || this._fields;
     this.$('draft-send-status').textContent = this._sent ? `${this.t('sentCandidate')} \u00b7 r${this._sent.revision} \u00b7 ${this._sent.sha256.slice(0, 12)}` : '';
     const modelStale = this._fields || this._modelValidationVersion !== this._version;
     this.$('draft-model-status').textContent = this.t('hostModel') + ': ' + (this._modelValidation ?
@@ -671,7 +670,6 @@ class HomePanelDraft extends HTMLElement {
     this.$('draft-compare-base').disabled = blocked || this._fields || formOpen;
     this.$('draft-compare-base').querySelector('[value="saved"]').disabled = !this._storeFresh || !this._checkpointDocument;
     this.$('draft-export').disabled = blocked || this._fields || formOpen;
-    this.$('draft-send').disabled = !this._canSend();
     this.$('draft-update-action').disabled = blocked || this._capsChanged();
     this.$('draft-update-sensor').disabled = blocked || this._capsChanged();
     this.$('draft-choose-sensor').disabled = blocked || !this._context.storageOnline || this._capsChanged();

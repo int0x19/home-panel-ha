@@ -8,8 +8,9 @@ imply that the deployed action-only API now accepts sensors.
 
 The HA companion now includes a structured **Draft** tab for the action pilot.
 It edits a local copy of a checked export, not the running panel. Three
-[HA-only checkpoint commands](HA_DRAFT_STORAGE.md) now save/load/delete a draft;
-there is no device upload, SD-candidate Save, Apply or household-action method.
+[HA-only checkpoint commands](HA_DRAFT_STORAGE.md) save/load/delete a draft.
+The subsequent [candidate Send extension](HA_CANDIDATE_SEND.md) explicitly stores
+checked bytes in flash; there is still no SD upload, Apply or household-action method.
 Generated production `panel.yaml` rooms are unchanged.
 
 **Save in HA** explicitly retains one committed draft plus its exact original
@@ -31,7 +32,7 @@ protection. Only explicit checkpoints survive a fresh component/session.
    the existing [read/check workflow](HA_FRONTEND.md#workflow).
 2. Select **Edit draft**. The original byte-for-byte download and independent
    raw-check input are retained unchanged. The draft has its own suggested next
-   revision, above the observed loaded/file revisions; this is not a reserved
+   revision, above the observed loaded/file/flash-high-water revisions; this is not a reserved
    device revision or authorization to deploy.
 3. Create, rename, reorder or delete rooms. Unicode names use the negotiated
    UTF-8 string budget. Change a compatible page between ordinary Room and

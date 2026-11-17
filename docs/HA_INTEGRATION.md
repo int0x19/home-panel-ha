@@ -101,7 +101,9 @@ one HA checkpoint per panel, independently of device connectivity; they are not
 device writes. A separate [model-check command](HA_MODEL_VALIDATION.md) uses the
 same pure Python models as the host generators, including profiles, references
 and no-scroll geometry, without device I/O or template files. HA and ESP32
-reports remain independent. There is no device uploader, service or actuator control.
+reports remain independent. The [candidate Send extension](HA_CANDIDATE_SEND.md)
+adds an explicit administrator-only flash Upload, using the same client/job gate.
+There is still no Apply, generic service or actuator control.
 Never expose keys/native boot nonces to browser storage or perform
 browser-to-panel HTTP. Managed writes remain separate roadmap gates.
 

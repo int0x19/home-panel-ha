@@ -213,7 +213,8 @@ async def test_send_over_real_shared_ha_http_session(hass, panel, monkeypatch, a
         await hass.async_block_till_done()
 
 
-@pytest.mark.skipif(not shutil.which("node") or not Path("/usr/bin/chromium").exists(), reason="Chromium/Node required")
+@pytest.mark.skipif(not shutil.which("node") or (os.environ.get("HA_BROWSER_MANAGED_PLAYWRIGHT") != "1" and
+                    not Path("/usr/bin/chromium").exists()), reason="Chromium/Node required")
 @pytest.mark.parametrize("lost", [False, True])
 async def test_send_in_chromium(hass, entry, panel, hass_client, hass_access_token, lost):
     from homeassistant.components.http import StaticPathConfig

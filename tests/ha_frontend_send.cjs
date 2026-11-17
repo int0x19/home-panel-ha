@@ -3,14 +3,17 @@ const {chromium} = require('playwright');
 const assert = require('node:assert/strict');
 const fs = require('node:fs');
 const path = require('node:path');
-const files = require(path.join(path.dirname(require.resolve('playwright-core')), 'lib/utils/fileUtils.js'));
-files.removeFolders = dirs => Promise.all(dirs.map(dir => fs.promises.rm(dir, {recursive:true, force:true}).then(() => undefined, e => e)));
+if (process.env.HA_BROWSER_MANAGED_PLAYWRIGHT !== '1') {
+  const files = require(path.join(path.dirname(require.resolve('playwright-core')), 'lib/utils/fileUtils.js'));
+  files.removeFolders = dirs => Promise.all(dirs.map(dir => fs.promises.rm(dir, {recursive:true, force:true}).then(() => undefined, e => e)));
+}
 const origin = process.env.HA_BROWSER_ORIGIN;
 assert.match(origin, /^http:\/\/127\.0\.0\.1:\d+$/);
 const output = path.resolve('build/ha-send');
 fs.mkdirSync(output, {recursive:true});
 (async () => {
-  const browser = await chromium.launch({executablePath:'/usr/bin/chromium', headless:true, args:['--no-sandbox']});
+  const executablePath = process.env.HA_BROWSER_MANAGED_PLAYWRIGHT === '1' ? undefined : '/usr/bin/chromium';
+  const browser = await chromium.launch({executablePath, headless:true, args:['--no-sandbox']});
   try {
     const page = await browser.newPage({viewport:{width:1280, height:900}}), errors = [];
     page.on('pageerror', error => errors.push(error.message));
@@ -64,6 +67,11 @@ fs.mkdirSync(output, {recursive:true});
       assert.equal(results['home_panel/config/validate/'].candidate_document,
         await page.evaluate(() => harness.calls.findLast(c => c.type.endsWith('/send')).document));
       assert.equal(results['home_panel/config/send/'].candidate.applied, false);
+      await page.locator('#draft-room-name').fill('Новые правки');
+      assert.equal(await page.locator('#draft-send-status').isHidden(), true, 'Pending fields are not the saved candidate');
+      await page.locator('#draft-update-room').click();
+      assert.equal(await page.locator('#draft-send-status').isHidden(), true, 'Old receipt does not certify edited draft');
+      assert.equal(await page.locator('#draft-send').isDisabled(), true);
     }
     await page.waitForTimeout(150);
     assert.equal(await page.evaluate(() => harness.calls.filter(c => c.type.endsWith('/send')).length), 1);

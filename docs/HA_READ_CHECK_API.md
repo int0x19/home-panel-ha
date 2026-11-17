@@ -2,9 +2,9 @@
 
 ## Scope
 
-The companion registers four **administrator-only** commands in the normal
+The initial read/check slice registers four **administrator-only** commands in the normal
 authenticated HA WebSocket API. It does not register a parallel HTTP server,
-generic proxy, HA service caller, device uploader or frontend editor. Use the
+generic proxy or HA service caller. Use the
 existing HA frontend connection (`hass.callWS`); a browser never contacts ESP32
 directly and does not receive its access key, origin or boot nonce.
 
@@ -20,6 +20,9 @@ administrator-only commands. Those write only HA storage, not ESP32; the four
 device-facing read/check operations below retain their original behavior.
 The separate [shared-model check](HA_MODEL_VALIDATION.md), `model_check`, runs
 only in HA and does not replace the device validator described here.
+The subsequent [candidate Send](HA_CANDIDATE_SEND.md) command shares this job
+gate. Only `validate` with an explicit `import_id` additionally canonicalizes
+and remembers a checked digest; ordinary raw validate remains unchanged.
 
 ## Commands
 

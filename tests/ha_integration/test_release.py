@@ -35,6 +35,7 @@ def test_deterministic_bundle_contains_core_and_shared_asset(wheel, tmp_path, la
         root = "custom_components/home_panel/" if layout == "manual" else ""
         target = root + "_vendor/home_panel_core/assets/runtime-draft.mjs"
         assert archive.read(target) == source.read("home_panel_core/assets/runtime-draft.mjs")
+        assert archive.read(root + "config_backend.py") == (builder.COMPONENT / "config_backend.py").read_bytes()
         assert json.loads(archive.read(root + "manifest.json"))["domain"] == "home_panel"
         assert json.loads(archive.read(root + "core-release.json")) == receipt
         assert archive.read(root + "brand/icon.png").startswith(b"\x89PNG\r\n\x1a\n")
@@ -81,6 +82,9 @@ assert '._vendor.home_panel_core' in _core._package.__name__
 assert _core._package.__version__ == '0.1.2'
 assert _core.asset_path('runtime-draft.mjs').is_file()
 assert _core.PanelReadBackend is _core.read_backend.PanelReadBackend
+from custom_components.home_panel.config_backend import PanelConfigBackend
+assert PanelConfigBackend.__mro__[1] is _core.PanelReadBackend
+assert callable(_core.PanelConfigClient.send_candidate)
 print('Offline release import passed')
 """
     result = subprocess.run([sys.executable, "-I", "-c", code, str(tmp_path / "ha")], cwd=tmp_path,

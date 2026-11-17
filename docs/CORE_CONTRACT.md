@@ -54,12 +54,13 @@ imports and different candidates conflict; uncertain writes are never replayed.
 An identical candidate is checked without a flash write. No Apply is implemented.
 
 The core HTTP transport requires `allow_candidate_upload=True` for Upload.
-This integration deliberately retains its default read/check-only transport and
-has no Send command yet. Next connect Send to its existing administrator backend
-and editor, keeping HA-local checkpoint Save distinct from device Upload.
+Pairing remains read/check-only. The subsequent
+[HA Send extension](HA_CANDIDATE_SEND.md) opts its paired client into Upload
+only, with an administrator command, retained imported snapshot and one-use
+checked digest. HA-local checkpoint Save stays distinct from device Upload.
 
 Consumer acceptance on HA 2026.11.0: 215 component/browser tests pass, including
-the default read-only transport regression and deterministic self-contained
+the then-default read-only transport regression and deterministic self-contained
 manual/Marketplace ZIP checks. All 22 wheel source/assets match the functional
 commit above; 66 installed-core tests pass. Firmware acceptance adds 84 scoped
 flash HTTP/NVS/client and 25 compatibility checks, with two optional sanitizer

@@ -7,14 +7,15 @@ integration, administrator configuration page, bounded HA draft checkpoints,
 HA-specific validation orchestration, translations and HA/browser tests.
 
 The firmware/generator/simulator remain in `esp32panel`. Shared models, JSON
-codec, read/check client and immutable JS draft editing live in the independent
+codec, bounded configuration client and immutable JS draft editing live in the independent
 `home-panel-core` Python package. There are no sibling-directory imports,
 submodules or handwritten copies of those implementations here.
 
 ## Installation
 
 Current source development is **0.1.2** with a capability-gated
-[numeric-sensor/group editor](docs/HA_SENSOR_DRAFT.md). It is not yet a
+[numeric-sensor/group editor](docs/HA_SENSOR_DRAFT.md) and explicit
+[candidate Send](docs/HA_CANDIDATE_SEND.md). It is not yet a
 published Marketplace release and does not enable managed device deployment.
 The build examples below use the matching development core wheel.
 
@@ -103,6 +104,11 @@ retain administrator authorization, bounded validation and exact-original guards
 
 ## Roadmap And Docs
 
+Candidate Send acceptance: **232 tests pass** on HA 2026.11, including actual
+WS/HTTP/Chromium and self-contained manual/Marketplace archives; 66 pinned-core
+tests pass separately. This is source/host acceptance, not publication or an
+installed-HA/physical-panel update. See [Send contract](docs/HA_CANDIDATE_SEND.md).
+
 Current functionality and deployment limits are documented in `docs/HA_*.md`.
 The [action entity picker](docs/HA_ENTITY_CATALOG.md) supports registry/state
 search with domain/area filters without contacting ESP32.
@@ -115,9 +121,11 @@ The [bounded history](docs/HA_DRAFT_HISTORY.md) keeps up to three previous
 checkpoints and opens them as unsaved drafts without changing the current one.
 The [navigation guard](docs/HA_NAVIGATION.md) protects unsaved drafts, unfinished
 fields and raw-check JSON, with explicit warnings for unsupported browsers.
-Next: capability-aware selection for richer editor families and guarded
-device deployment. Host model checks, HA checkpoint Save, device validation,
-SD-candidate Save and Apply remain independent operations.
+The [candidate Send workflow](docs/HA_CANDIDATE_SEND.md) checks exact canonical
+bytes on ESP32 and stores them as a flash candidate, without activation/restart.
+HA checkpoint Save, device Check, Send and Apply are independent operations.
+Next: explicit Apply/restart with observed running-model verification, followed
+by guarded Discard/recovery and separately authorized physical acceptance.
 
 The source subtree history comes from `esp32panel` commit `b72b70f` (2026-11-07).
 The original firmware history is unchanged. Shared library history continues in

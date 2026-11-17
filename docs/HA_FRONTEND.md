@@ -4,10 +4,11 @@
 
 The manual-install companion registers **Home Panel** in HA's administrator
 sidebar at `/home-panel-config`. It provides read/import/check and a
-[room/action draft editor](HA_DRAFT_EDITOR.md) with explicit HA checkpoints, not yet the
-full production editor or a configuration uploader. It uses the
-existing [read/check backend](HA_READ_CHECK_API.md); there are no device Save, Apply,
-firmware-upload or household-action controls.
+[room/action draft editor](HA_DRAFT_EDITOR.md) with explicit HA checkpoints and
+[flash candidate Send](HA_CANDIDATE_SEND.md). The existing
+[read/check backend](HA_READ_CHECK_API.md) remains in use; Send is an explicit
+extension, not activation. There are no Apply, firmware-upload or household-action
+controls, and unsupported firmware remains read/check-only.
 
 The page's JavaScript/CSS live in `custom_components/home_panel/www` on the HA
 host, not ESP32. Registration uses the official async static-path/custom-panel
