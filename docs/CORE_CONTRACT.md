@@ -35,6 +35,14 @@ stay unchanged; authenticated transport, explicit local recovery and guarded
 HA Send/Apply remain next. See firmware `docs/RUNTIME_AUTHORITY.md` for the
 private record/failure contract, including the non-transparent downgrade fence.
 
+Scope correction, 2026-11-17: public owner handover/scoped keys are deferred, not
+prerequisites of the first single-HA configuration workflow. Reuse existing HA
+administrator checks and the backend-only panel credential, with exact imported
+base/session/generation/digest conflicts. The private journal stays inactive;
+next implement minimal explicit Send-candidate, then Apply/restart. This is not
+exclusive ownership and does not enable any currently false deployment flag.
+No package version, functional core pin, frontend auth or device firmware changes.
+
 ## Prepared Capabilities Extension
 
 Compatibility update, 2026-11-16: the deployed panel now exposes valid factory

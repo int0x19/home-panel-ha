@@ -6,6 +6,17 @@ shared model/protocol work belongs to home-panel-core.
 
 ## Current Checkpoint (2026-11-17)
 
+Scope correction: use existing HA administrator permissions, the existing panel
+access credential and ESPHome Native API for states/actions. The next delivery
+is explicit bounded Send-candidate from the shared client and existing HA editor,
+then Apply/restart with observed activation. Persistent multi-controller
+ownership, scoped-key rotation and special receipt credentials are deferred,
+not prerequisites. Keep exact imported-base/session/generation/digest guards,
+independent validation, no automatic replay and known-good recovery. The
+experimental owner HTTP prototype was not accepted, committed or deployed;
+working firmware source remains at the private inactive backend. This correction
+supersedes ownership-first sequencing in the historical checkpoints below.
+
 Development 0.1.2 adds the [numeric-sensor/group draft slice](docs/HA_SENSOR_DRAFT.md)
 using core 0.1.2. Local acceptance passes 212 HA/browser tests, including actual
 registry metadata, independent Python checks, HA checkpoint restore and EN/RU
@@ -43,8 +54,8 @@ Release, restart/failure paths, revoked keys and the preceding-writer downgrade
 fence are host-tested. No HTTP handover, HA writer, managed readiness or physical
 activation is enabled. This checkpoint reruns 52 installed-core tests and the
 40-test HA release/setup/lifecycle subset, not the full HA/browser suite.
-Core 0.1.2 and its tested functional source pin remain unchanged. Next connect
-authenticated handover/scoped credentials and local recovery, then Send/Apply.
+Core 0.1.2 and its tested functional source pin remain unchanged. Public handover
+is deferred by the scope correction; next implement minimal guarded Send/Apply.
 
 Release 0.1.1 is published for Marketplace with bundled core 0.1.1. CI passes,
 including 204 HA/browser tests on HA 2026.11.0. The flash-NVS compatibility fix
@@ -91,7 +102,7 @@ its 16 KiB input ceiling is not the host schema's larger provisional budget.
 - [x] Document the HA/device responsibilities and versioned configuration-management contract, reusing the schema, canonical encoding, stable IDs, validator and storage API from 3.5. Distinguish HA draft revision, device active/candidate revisions and content digests; renaming/reordering must not change widget identity. The 2026-11-07 [contract and compatibility matrix](docs/CORE_CONTRACT.md) distinguish installed HTTP v1, prepared identity/decoder metadata and pending ownership/activation checks; physical device acceptance remains open below.
 - [x] Prepare the additive `capabilities.v1` boundary and explicit client identity pinning on Linux (2026-11-07): factory eFuse MAC-48 ID independent of IP/name/boot/SD, ID/session guards in status/jobs/metadata, one main-loop cached GET document, actual boot ceilings and inventories shared with the C++ decoder. Test restart/replacement/invalid identity, repeated read-only cache access, configured input limits and legacy fallback. Report action-preview-only/model-only support, zero subscriptions, unmeasured limits, incomplete loaded asset inventory and unmanaged/not-enforced authority. No target build/OTA, managed write enablement or physical identity/memory claim; see [prepared metadata](docs/CORE_CONTRACT.md#prepared-capabilities-extension).
 - [ ] Finish and accept device metadata on the physical board: verify factory identity across restart/network changes, complete loaded font/icon inventory and measured per-board input/room/widget/subscription budgets. Distinguish accepted decoder syntax from renderable assets and compiled-only room families. Keep schema/protocol negotiation and reject incompatible documents rather than downgrading controls silently; the prepared configured ceilings do not complete this gate.
-- [ ] Define and enforce local versus HA-managed configuration authority, ownership handover and authenticated emergency local recovery. Compare the current revision/digest before writes; a second HA instance, browser, reconnect or local import must not silently overwrite another editor's work. Managed mode is planned, not enforced by the current uploader.
+- [ ] Deferred until a concrete multi-controller or credential-isolation requirement: define/enforce optional HA-managed authority, handover and authenticated emergency recovery. This is not a prerequisite for the first single-HA/single-credential Send/Apply. Exact base/revision/digest conflicts remain mandatory; managed mode stays unadvertised and the native owner journal inactive.
 - [x] Prepare the private firmware authority backend (2026-11-17): persist a bounded two-copy NVS owner journal, recheck owner/epoch in the native config transaction, and implement explicit Claim/Rotate/Release with exact configuration-base/trial guards. Native fault/restart/downgrade checks pass. This is not the public HTTP/HA handover or managed activation gate above; keep that gate open and all deployment permissions false.
 - [ ] Specify portable import/export and migration/precedence for existing YAML defaults, socket aliases, Plant overrides, light presets and backlight preferences. Keep hardware, Wi-Fi/API/OTA credentials, executable code and live entity readings out of runtime JSON. Preserve compatible recovery documents on schema/firmware downgrade.
 
@@ -132,9 +143,9 @@ rooms and two-editor conflicts. Firmware changes and real actions are not needed
 
 #### 3.8.4. Guarded deployment, activation and recovery
 
-- [ ] Implement explicit Check, Send candidate, Apply/restart, Discard and Restore operations through the existing bounded main-loop job API. Recheck device identity/session, authority, base revision and candidate digest at each step; successful HA/device validation alone does not prove that later SD publication will succeed. Serialize per-panel jobs and bound polling without blocking HA's event loop.
+- [ ] Implement explicit Check, Send candidate, Apply/restart, Discard and recovery through the existing bounded main-loop job API, starting with Send only. Reuse HA administrator authorization and the existing panel credential; recheck device identity/session, exact imported base, flash generation, operation/document revisions and candidate digest. Do not activate owner records, add another auth system or infer write readiness from validation. Serialize per-panel jobs and bound polling without blocking HA's event loop; retain safe legacy SD compatibility separately.
 - [ ] Report draft, checked, saved candidate, applying, running, fallback and unknown-result states separately. After restart, reread identity/session, loaded source/revision/digest and renderer readiness before reporting success; HTTP 202, an upload receipt or a TCP reconnect is not proof of successful activation. Keep the pending first-frame/trial-confirmation work in 3.5 explicit.
-- [ ] Reconcile reconnect, HA restart, lost replies, expired receipts and concurrent local recovery by reading device state first. Never silently replay Apply, restore an older document or overwrite a newer one. Require an explicit user decision for conflict resolution and local/HA authority transfer.
+- [ ] Reconcile reconnect, HA restart, lost replies, expired receipts and concurrent local recovery by reading device state first. Never silently replay Apply, restore an older document or overwrite a newer one. Require explicit user conflict review; optional local/HA ownership transfer is deferred and must not block the single-credential workflow.
 - [ ] Keep a validated local document, previous-valid backup and compiled recovery path, plus the minimal local maintenance page. HA downtime must not prevent loading the cached UI; live readings/actions still depend on HA. Do not format SD, touch factory media or claim ordinary FatFs rename is power-loss atomic; carry the physical failure gates from 3.5 into release acceptance.
 - [ ] Verify the complete transfer path without enabling runtime dispatch or commanding household devices. Keep executable templates, arbitrary file paths and generic HA service-call definitions out of the configuration channel; a configuration deployment must not execute an action tile as a side effect.
 
