@@ -27,6 +27,16 @@ optional skip). Published 0.1.1 does not recognize the new target, so companion
 verification must precede a future readings-profile OTA. Next implement
 ownership and exact base revision/digest/generation checks before Send/Apply.
 
+The subsequent `write-base.v1` slice implements the device's base-snapshot
+comparison under the fresh NVS writer lease. The pinned core/HA read backend
+rejects changed bases without replay, including unchanged numeric generation.
+No HA writer or managed authority is enabled; next add persistent owner/scoped
+authentication and explicit local handover/recovery, then Send/Apply.
+This slice passes 214 HA/component-browser and 52 installed-core tests, with
+80 focused firmware flash HTTP/NVS/client checks (two optional skips), 28
+compatibility/decode/codegen checks and separate flash ASan/UBSan/two loopback
+browser flows. No full firmware sweep, ESP32 build/OTA or release is implied.
+
 Release 0.1.1 is published for Marketplace with bundled core 0.1.1. CI passes,
 including 204 HA/browser tests on HA 2026.11.0. The flash-NVS compatibility fix
 was checked against the running ESP32: factory identity/capabilities, exact

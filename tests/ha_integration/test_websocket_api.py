@@ -360,10 +360,12 @@ async def test_flash_import_without_sd_uses_actual_configuration_storage(ws, ent
         "/panel/runtime/api/export", "/panel/runtime/api/validate"}
 
 
-@pytest.mark.parametrize("field,value", [("storage_ready", False), ("storage_generation", "63")])
+@pytest.mark.parametrize("field,value", [("storage_ready", False), ("storage_generation", "63"),
+                                        ("write_base_sha256", "b" * 64)])
 async def test_flash_storage_change_during_import_requires_refresh(ws, entry, panel, field, value):
     panel.state.update(storage="flash-nvs", storage_ready=True, sd_ready=False, loaded_source="flash-confirmed", storage_generation="62")
-    panel.state["features"].append("flash-maintenance.v1")
+    panel.state["features"].extend(["flash-maintenance.v1", "write-base.v1"])
+    panel.state["write_base_sha256"] = "a" * 64
     def change(method, suffix, result):
         if suffix == "validate":
             panel.state[field] = value
@@ -372,6 +374,7 @@ async def test_flash_storage_change_during_import_requires_refresh(ws, entry, pa
     result = await command(ws, entry, "import", source="active")
     assert result["error"]["code"] == "read_conflict"
     assert entry.runtime_data.read_backend.requires_status_refresh
+    assert sum(path == "/panel/runtime/api/validate" for method, path, *_ in panel.calls if method == "POST") == 1
 
 
 async def test_identity_mismatch_cannot_import_or_validate(ws, entry, panel):
