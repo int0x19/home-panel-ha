@@ -15,9 +15,11 @@ module.exports = async function testSensors(page, output) {
   assert.equal(await page.locator('#draft-add-sensor').isDisabled(), true, 'Action-only firmware must stay gated');
   await page.evaluate(() => {
     const parent = harness.element, caps = parent._status.capabilities;
-    caps.features.push('widget.sensor', 'sensor-groups.v1'); caps.widget_types.push('sensor');
+    caps.features.push('widget.sensor', 'widget.status', 'sensor-groups.v1'); caps.widget_types.push('sensor', 'status');
+    caps.limits.subscriptions = caps.limits.entity_bindings;
     parent._update(); parent.$('draft-editor').begin(parent._original, caps, 40);
   });
+  assert.equal(await page.locator('#scope').textContent(), 'Room readings preview');
   await page.locator('#draft-room-name').fill('Спальня');
   await page.locator('#draft-update-room').click();
   const before = await page.evaluate(() => harness.calls.length);

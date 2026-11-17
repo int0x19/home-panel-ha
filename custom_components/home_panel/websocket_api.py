@@ -49,7 +49,7 @@ def _snapshot(entry: PanelConfigEntry, value: RuntimeSnapshot) -> dict[str, Any]
     return {
         "version": 1,
         "entry_id": entry.entry_id,
-        "scope": "action_preview_only",
+        "scope": "readings_preview_only" if "widget.sensor" in caps.features else "action_preview_only",
         "requires_status_refresh": entry.runtime_data.read_backend.requires_status_refresh,
         "status": {
             "storage": state.storage, "storage_ready": state.storage_ready,

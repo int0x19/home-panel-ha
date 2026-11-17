@@ -15,6 +15,18 @@ require explicit capability features and widget inventory; the deployed
 action-only configuration profile remains gated. No managed write, firmware
 upload, physical-device command or 0.1.2 publication is implied.
 
+The subsequent host-tested firmware slice aligns flash capabilities/storage
+with its existing general decoder. Development core/HA 0.1.2 now recognize
+`esp32-readings-preview`, expose the negotiated readings scope and retain
+legacy action-only compatibility. Shared-client Check/Export work through the
+production C++ handler on Linux; managed ownership/Send/Apply and physical
+readings acceptance remain next, not inferred from metadata.
+Current acceptance passes 213 HA/component-browser tests with the pinned
+wheel, 50 installed-core tests and 70 scoped native HTTP/NVS/LVGL checks (one
+optional skip). Published 0.1.1 does not recognize the new target, so companion
+verification must precede a future readings-profile OTA. Next implement
+ownership and exact base revision/digest/generation checks before Send/Apply.
+
 Release 0.1.1 is published for Marketplace with bundled core 0.1.1. CI passes,
 including 204 HA/browser tests on HA 2026.11.0. The flash-NVS compatibility fix
 was checked against the running ESP32: factory identity/capabilities, exact

@@ -31,8 +31,11 @@ placed on Actions pages. A capability change still blocks mutations until a
 fresh draft is explicitly opened; HA entities never widen device capabilities.
 
 The current physical configuration API is action-only, so Add sensor stays
-disabled there. Tests use a synthetic future reading profile with real HA
-registry/checkpoint/model WebSocket handling. Binary-status editing, runtime
+disabled there. The next firmware source slice reports an explicit
+`esp32-readings-preview` profile for its existing flash decoder. Core 0.1.2
+recognizes it; an actual HA WebSocket test carries its inventory to the editor
+without enabling managed writes. Browser tests use synthetic negotiation with
+real HA registry/checkpoint/model handling. Binary-status editing, runtime
 publication/authority and device cutover remain later work.
 
 ## Verification
@@ -52,7 +55,16 @@ contains captures. Its native checks also require the strict action-only
 decoder to keep rejecting this family. These are host/component checks, not
 installed-user-HA or physical-device acceptance.
 
-Next accept the runtime readings capability/storage boundary and implement
+The runtime readings capability/storage boundary is now prepared and tested
+on the host in the firmware repository, not installed on the panel. Next add
 guarded ownership-aware Send/Apply with flash-generation/base checks and
 known-good recovery. No ESP32 compile/OTA, SD access or household action was
 performed; development 0.1.2 has not been published to Marketplace.
+
+Subsequent readings-profile acceptance, 2026-11-17: all 213 HA/component-browser
+tests and 50 installed-core tests pass with the source locked in
+`core-source.json`. The firmware's scoped C++/HTTP/NVS/LVGL checks pass 70 cases
+with one optional skip. The same 5995-byte browser export survives candidate/
+exact-export on fake NVS and renders again in Linux with no overflow/commands.
+This does not change the running panel. Published HA/core 0.1.1 reject the new
+target; verify the updated companion before any future readings-profile OTA.

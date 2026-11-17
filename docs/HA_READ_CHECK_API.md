@@ -62,7 +62,9 @@ device identity. Extra connection fields are rejected, not used as overrides.
 
 Reads fresh status/capabilities via the pinned client and returns:
 
-- `version: 1`, `entry_id`, `scope: "action_preview_only"`.
+- `version: 1`, `entry_id`, `scope: "action_preview_only"` for the legacy
+  action profile or `"readings_preview_only"` for negotiated sensor support.
+  Neither scope enables configuration writes or action dispatch.
 - `requires_status_refresh`, a backend recovery flag, not a device state.
 - `status`: SD/busy/restarting flags, loaded source/revision, current JSON byte
   limit, HTTP feature names and file metadata for active/candidate/backup/temp.

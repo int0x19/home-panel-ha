@@ -18,7 +18,7 @@ from custom_components.home_panel._core import TransportError
 from custom_components.home_panel._core import read_backend
 from custom_components.home_panel.websocket_api import PREFIX
 from custom_components.home_panel import websocket_api as panel_ws
-from support import DEVICE_ID, TOKEN, metadata, response
+from support import DEVICE_ID, TOKEN, metadata, response, capability_document
 
 
 @pytest.fixture
@@ -136,6 +136,28 @@ async def test_check_valid_and_invalid_documents_without_save(ws, entry, panel):
         assert result["result"]["validation"]["valid"] is valid
         assert "document" not in result["result"]
     assert {path for method, path, *_ in panel.calls if method == "POST"} == {"/panel/runtime/api/validate"}
+
+
+async def test_negotiated_flash_readings_reach_the_editor_without_enabling_writes(ws, entry, panel):
+    panel.state.update(storage="flash-nvs", storage_ready=True, sd_ready=False,
+                       loaded_source="flash-confirmed", storage_generation="62")
+    panel.state["features"].append("flash-maintenance.v1")
+    panel.change = lambda method, path, result: (
+        response(capability_document(panel.state, readings=True)) if path == "capabilities" else result)
+    result = await command(ws, entry, "status")
+    assert result["success"]
+    data = result["result"]
+    assert data["scope"] == "readings_preview_only"
+    assert data["capabilities"]["widget_types"] == ["action", "sensor", "status"]
+    assert "sensor-groups.v1" in data["capabilities"]["features"]
+    assert data["capabilities"]["limits"]["subscriptions"] == 12
+    assert data["status"]["storage_ready"] and not data["status"]["sd_ready"]
+    assert not data["management_ready"] and not data["deployment_ready"]
+    imported = await command(ws, entry, "import", source="active")
+    assert imported["success"]
+    assert imported["result"]["document"].encode() == panel.documents["active"]
+    assert {path for method, path, *_ in panel.calls if method == "POST"} == {
+        "/panel/runtime/api/export", "/panel/runtime/api/validate"}
 
 
 @pytest.mark.parametrize("document", ["", "a" * 65537, "\u042f" * 32769, "a" * 16385])

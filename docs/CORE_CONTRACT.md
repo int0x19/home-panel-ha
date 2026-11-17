@@ -10,6 +10,14 @@ sensor/group draft transactions. It preserves the v1 model/protocol and all
 read/check guards. Editing is conditional on negotiated features and widget
 inventory, not a claim of device-family or managed-deployment acceptance.
 
+The same unpublished 0.1.2 now pins the subsequent core source that recognizes
+`esp32-readings-preview` alongside the legacy action-only target. The firmware
+flash profile exposes sensors/status/groups and a configured combined source/
+subscription ceiling. HA reports the negotiated readings-preview scope; its
+source pin is recorded in `core-source.json`. Local maintenance storage is not
+HA-managed authority, and no Send/Apply method is added to the shared client.
+The running panel and published Marketplace 0.1.1 remain unchanged.
+
 ## Prepared Capabilities Extension
 
 Compatibility update, 2026-11-16: the deployed panel now exposes valid factory

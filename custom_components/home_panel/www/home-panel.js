@@ -12,7 +12,7 @@ const words = {
     "sd-files": "SD", "flash-nvs": "Flash", "flash-confirmed": "Confirmed flash",
     "flash-previous": "Previous flash", "flash-trial": "Trial flash",
     revision: "Revision", limit: "JSON byte limit", authority: "Authority", unmanaged: "Unmanaged",
-    managed: "HA-managed", scope: "Action preview", deployment: "Deployment unavailable",
+    managed: "HA-managed", scope: "Action preview", readingsScope: "Room readings preview", deployment: "Deployment unavailable",
     source: "Source", active: "Active", candidate: "Candidate", backup: "Backup", builtin: "Builtin",
     file: "File", bytes: "Bytes", state: "State", valid: "Valid", invalid: "Invalid", missing: "Missing",
     import: "Import", original: "Imported JSON", check: "Check JSON", download: "Download original",
@@ -41,7 +41,7 @@ const words = {
     "sd-files": "SD", "flash-nvs": "Flash", "flash-confirmed": "Подтверждённая flash",
     "flash-previous": "Предыдущая flash", "flash-trial": "Пробная flash",
     revision: "Ревизия", limit: "Лимит JSON, байт", authority: "Управление", unmanaged: "Локальное",
-    managed: "Через HA", scope: "Превью действий", deployment: "Применение недоступно",
+    managed: "Через HA", scope: "Превью действий", readingsScope: "Превью сенсоров комнат", deployment: "Применение недоступно",
     source: "Источник", active: "Активный", candidate: "Кандидат", backup: "Резервный", builtin: "Встроенная",
     file: "Файл", bytes: "Байт", state: "Состояние", valid: "Корректный", invalid: "Некорректный", missing: "Отсутствует",
     import: "Импорт", original: "Исходный JSON", check: "Проверка JSON", download: "Скачать оригинал",
@@ -138,7 +138,7 @@ class HomePanelConfig extends HTMLElement {
           <button id="reload" class="icon" data-title="reload"><ha-icon icon="mdi:refresh">&#8635;</ha-icon></button>
           <button id="refresh"><ha-icon icon="mdi:sync">&#8635;</ha-icon><span data-text="refresh"></span></button>
         </section>
-        <div class="status-line" aria-live="polite"><span id="connection" class="badge"></span><span class="badge" data-text="scope"></span><span class="muted" data-text="deployment"></span></div>
+        <div class="status-line" aria-live="polite"><span id="connection" class="badge"></span><span id="scope" class="badge"></span><span class="muted" data-text="deployment"></span></div>
         <p id="message" role="status" hidden></p>
         <p id="navigation-warning" class="warning" role="status" data-text="navigationLimited" hidden></p>
         <section id="metadata" hidden>
@@ -566,6 +566,7 @@ class HomePanelConfig extends HTMLElement {
       this._selected?.state && this._selected.state !== "loaded" ? this._selected.state : this._needsRefresh || (this._status && !this._fresh) ? "stale" :
       this._fresh ? (this._status.status.busy ? "busy" : "ready") : this._entry ? "unavailable" : "choose");
     this.$("connection").className = "badge " + (this._online && this._fresh && !this._needsRefresh ? "success" : "muted");
+    this.$("scope").textContent = this.t(this._status?.capabilities.features.includes('widget.sensor') ? "readingsScope" : "scope");
     const error = errors[this._errorCode];
     this.$("message").hidden = !error && !this._notice;
     this.$("message").textContent = error ? error[this._lang === "ru" ? 1 : 0] : this.t(this._notice);
