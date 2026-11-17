@@ -55,9 +55,11 @@ maintenance workflow to remove it explicitly, not another Send or an overwrite.
 The HA-only backend extends the pinned read-backend operation gate, rather than
 duplicating it. Its use of that package-private gate is covered by consumer
 lifecycle/concurrency tests; keep the exact core source pin checked on upgrades.
-Core remains functional source `7d8189d10c3fa464c18306965fcd9d43b0c5e705` and
+The Send checkpoint used core `7d8189d10c3fa464c18306965fcd9d43b0c5e705`;
+the current core lock is `ac24832776852116018ad47cdf120685c9d37567`, still
 unpublished version 0.1.2. Default core HTTP transport and unpaired discovery
-stay read/check-only; only a paired HA client opts into Upload. Apply, restore,
+stay read/check-only; only a paired HA client opts into Upload. Core also
+supports separately opted-in Apply/inspection, but HA keeps Apply disabled. Restore,
 Discard, scan and actuator routes remain excluded independently by transport.
 
 ## Acceptance And Next Step

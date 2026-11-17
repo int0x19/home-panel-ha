@@ -6,6 +6,22 @@ shared model/protocol work belongs to home-panel-core.
 
 ## Current Checkpoint (2026-11-17)
 
+Core Apply/inspection is now pinned at functional source
+`ac24832776852116018ad47cdf120685c9d37567`, still development 0.1.2. All 79
+installed-core tests, 232 HA tests and 114 scoped native checks pass (two
+optional sanitizer skips). HA remains Send-only; Apply's separate transport
+flag and WebSocket/UI path are not enabled. Next implement that explicit
+administrator Apply/inspection flow, then Discard/recovery. No firmware build,
+OTA, installed-HA update or publication. See [core boundary](docs/CORE_CONTRACT.md#core-apply-boundary).
+
+The next core slice pins `ac24832776852116018ad47cdf120685c9d37567`: guarded
+Apply request and bounded activation inspection, reusing existing boot/flash
+metadata. Confirmed means the exact primary trial passed local first-frame/
+binding health and active export SHA, not merely a reconnect or HTTP receipt.
+No MCU code, new endpoint, controller journal or HA Apply control is added.
+Next expose explicit Apply/inspection through the existing HA administrator
+backend/UI; keep the transport opt-in false until that path is accepted.
+
 Candidate Send acceptance: all 232 HA tests and 66 installed-core tests pass.
 The final Send/bundle subset passes 28 tests again; five upstream HA
 deprecations remain. No ESP32 build/OTA or publication. The next concrete step

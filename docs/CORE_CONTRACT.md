@@ -45,13 +45,13 @@ No package version, functional core pin, frontend auth or device firmware change
 
 ## Candidate Send Library Boundary
 
-The current source lock advances to core functional commit
+The Send checkpoint advanced to core functional commit
 `7d8189d10c3fa464c18306965fcd9d43b0c5e705`, still unpublished development 0.1.2.
 Its explicit `send_candidate` validates canonical JSON against negotiated limits,
 checks the original imported snapshot, submits existing flash Upload once, then
 verifies exact exported bytes and unchanged active/backup/loaded state. Stale
 imports and different candidates conflict; uncertain writes are never replayed.
-An identical candidate is checked without a flash write. No Apply is implemented.
+An identical candidate is checked without a flash write. That checkpoint did not implement Apply.
 
 The core HTTP transport requires `allow_candidate_upload=True` for Upload.
 Pairing remains read/check-only. The subsequent
@@ -66,6 +66,32 @@ commit above; 66 installed-core tests pass. Firmware acceptance adds 84 scoped
 flash HTTP/NVS/client and 25 compatibility checks, with two optional sanitizer
 skips. This is not publication, ESP32 OTA or physical acceptance. Package versions
 stay at unpublished 0.1.2; published Marketplace 0.1.1 remains unchanged.
+
+## Core Apply Boundary
+
+The current functional lock advances to core
+`ac24832776852116018ad47cdf120685c9d37567`, still unpublished 0.1.2. It adds
+`apply_candidate(expected=...)` and `inspect_activation(expected=...)` using
+existing flash Apply/export and boot metadata. Separate transport opt-ins keep
+Send independent from Apply. Request acknowledgement is only a scheduled trial;
+inspection must verify the expected boot/generation/files, local first-frame/
+health confirmation and active export SHA before reporting `confirmed`.
+Rollback, still-confirming and unverified states remain distinct; no Apply retry.
+
+HA deliberately keeps `allow_candidate_apply=False`, exposes no Apply WebSocket
+command/control and does not retain an activation intent yet. Pairing is
+read/check-only; its paired client still opts only into Upload. The no-Apply
+transport/command and bundled-only import tests cover the new package. Next
+implement an explicit administrator Apply/inspection backend and UI, using the
+same per-panel gate and no automatic replay. See core `docs/CANDIDATE_APPLY.md`.
+
+Consumer acceptance on 2026-11-17: all 79 installed-core tests and 232 HA
+component/browser/bundle tests pass with this functional pin. The firmware's
+scoped native flash/NVS/read-check/decoder suite runs 116 cases: 114 pass and
+two optional sanitizer runs skip. All 23 wheel package files match the pinned
+source. No MCU production source, physical Apply, build/OTA, installed-HA update
+or release publication is implied. The source-test-only timeout expectation fix
+does not move this functional pin or change its wheel.
 
 ## Prepared Capabilities Extension
 

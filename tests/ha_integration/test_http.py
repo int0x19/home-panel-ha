@@ -25,6 +25,7 @@ async def test_pairing_is_read_only_and_paired_client_only_opts_into_upload(hass
                                             headers={}, body=b"{}", max_bytes=16384)
     client = coordinator.create_client(hass, data, DEVICE_ID)
     assert client._transport._allow_candidate_upload
+    assert not client._transport._allow_candidate_apply
     for suffix in ("apply", "discard", "restore", "scan"):
         with pytest.raises(ValueError, match="Unsupported panel request"):
             await client._transport.request("POST", "/panel/runtime/api/" + suffix,

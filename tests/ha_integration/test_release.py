@@ -85,6 +85,8 @@ assert _core.PanelReadBackend is _core.read_backend.PanelReadBackend
 from custom_components.home_panel.config_backend import PanelConfigBackend
 assert PanelConfigBackend.__mro__[1] is _core.PanelReadBackend
 assert callable(_core.PanelConfigClient.send_candidate)
+assert callable(_core.PanelConfigClient.apply_candidate)
+assert callable(_core.PanelConfigClient.inspect_activation)
 print('Offline release import passed')
 """
     result = subprocess.run([sys.executable, "-I", "-c", code, str(tmp_path / "ha")], cwd=tmp_path,
