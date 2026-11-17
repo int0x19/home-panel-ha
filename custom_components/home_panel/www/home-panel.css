@@ -48,6 +48,9 @@ summary { cursor: pointer; color: var(--secondary-text-color, #58636b); padding:
 .tabs button { flex: 0 1 180px; border: 0; border-radius: 0; background: transparent; color: var(--secondary-text-color, #58636b); padding: 11px 16px; border-bottom: 2px solid transparent; }
 .tabs button[aria-selected="true"] { color: var(--primary-color, #00796b); border-bottom-color: var(--primary-color, #00796b); }
 .document-bar { display: flex; align-items: center; justify-content: space-between; gap: 12px; min-height: 60px; padding: 10px 0; }
+#activation-tools { flex-wrap: wrap; }
+#activation-tools .report { flex: 1 1 220px; min-width: 0; }
+#activation-tools button { max-width: 100%; }
 #originalInfo { flex: 1; }
 #edit-original { flex: 0 1 auto; }
 #originalInfo { min-width: 0; overflow-wrap: anywhere; }

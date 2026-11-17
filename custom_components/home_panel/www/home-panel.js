@@ -12,7 +12,7 @@ const words = {
     "sd-files": "SD", "flash-nvs": "Flash", "flash-confirmed": "Confirmed flash",
     "flash-previous": "Previous flash", "flash-trial": "Trial flash",
     revision: "Revision", limit: "JSON byte limit", authority: "Authority", unmanaged: "Unmanaged",
-    managed: "HA-managed", scope: "Action preview", readingsScope: "Room readings preview", deployment: "Deployment unavailable",
+    managed: "HA-managed", scope: "Action preview", readingsScope: "Room readings preview", deployment: "Local trial mode",
     source: "Source", active: "Active", candidate: "Candidate", backup: "Backup", builtin: "Builtin",
     file: "File", bytes: "Bytes", state: "State", valid: "Valid", invalid: "Invalid", missing: "Missing",
     import: "Import", original: "Imported JSON", check: "Check JSON", download: "Download original",
@@ -30,6 +30,11 @@ const words = {
     setup_error: "Setup error", not_loaded: "Not loaded", migration_error: "Migration error",
     failed_unload: "Unload failed", setup_in_progress: "Connecting", unload_in_progress: "Unloading",
     saved: "Downloaded", imported: "Imported and validated", fileLoaded: "Local file loaded",
+    applyCandidate: "Apply and restart", confirmApply: "Apply the saved candidate and restart the panel? Local draft changes are not included.",
+    noActivation: "No verified candidate for Apply", activationReady: "Candidate ready", activationRestarting: "Restart scheduled",
+    activationConfirming: "Waiting for screen confirmation", activationConfirmed: "Running configuration confirmed",
+    activationRolledBack: "Trial rolled back", activationUnknown: "Activation result unknown", activationUnchanged: "No activation observed",
+    activationUnverified: "Activation not verified",
     filename: "Filename", input: "Local input", connection: "Connection", unsupported: "Firmware metadata incompatible",
   },
   ru: {
@@ -41,7 +46,7 @@ const words = {
     "sd-files": "SD", "flash-nvs": "Flash", "flash-confirmed": "Подтверждённая flash",
     "flash-previous": "Предыдущая flash", "flash-trial": "Пробная flash",
     revision: "Ревизия", limit: "Лимит JSON, байт", authority: "Управление", unmanaged: "Локальное",
-    managed: "Через HA", scope: "Превью действий", readingsScope: "Превью сенсоров комнат", deployment: "Применение недоступно",
+    managed: "Через HA", scope: "Превью действий", readingsScope: "Превью сенсоров комнат", deployment: "Локальный пробный режим",
     source: "Источник", active: "Активный", candidate: "Кандидат", backup: "Резервный", builtin: "Встроенная",
     file: "Файл", bytes: "Байт", state: "Состояние", valid: "Корректный", invalid: "Некорректный", missing: "Отсутствует",
     import: "Импорт", original: "Исходный JSON", check: "Проверка JSON", download: "Скачать оригинал",
@@ -59,6 +64,11 @@ const words = {
     setup_error: "Ошибка подключения", not_loaded: "Не загружена", migration_error: "Ошибка миграции",
     failed_unload: "Ошибка выгрузки", setup_in_progress: "Подключение", unload_in_progress: "Выгрузка",
     saved: "Скачано", imported: "Импортировано и проверено", fileLoaded: "Локальный файл загружен",
+    applyCandidate: "Применить и перезапустить", confirmApply: "Применить сохранённого кандидата и перезапустить панель? Локальные правки черновика не применяются.",
+    noActivation: "Нет проверенного кандидата для применения", activationReady: "Кандидат готов", activationRestarting: "Запланирован перезапуск",
+    activationConfirming: "Ожидание подтверждения экрана", activationConfirmed: "Запуск конфигурации подтверждён",
+    activationRolledBack: "Выполнен откат", activationUnknown: "Результат применения неизвестен", activationUnchanged: "Применение не обнаружено",
+    activationUnverified: "Применение не подтверждено",
     filename: "Имя файла", input: "Локальный текст", connection: "Соединение", unsupported: "Несовместимые метаданные прошивки",
   },
 };
@@ -99,6 +109,7 @@ class HomePanelConfig extends HTMLElement {
     this._entries = [];
     this._entry = "";
     this._status = null;
+    this._activation = this._applyId = null;
     this._original = null;
     this._input = "";
     this._inputVersion = 0;
@@ -155,6 +166,10 @@ class HomePanelConfig extends HTMLElement {
             <div class="file-head" role="row"><span data-text="source"></span><span data-text="revision"></span><span data-text="bytes"></span><span data-text="state"></span><span></span></div>
             ${["active", "candidate", "backup"].map(source => `<div class="file-row" data-source="${source}" role="row"><strong data-text="${source}" role="cell"></strong><span class="file-revision" role="cell"></span><span class="file-bytes" role="cell"></span><span class="file-state" role="cell"></span><button data-import="${source}"><ha-icon icon="mdi:tray-arrow-down">&#8595;</ha-icon><span data-text="import"></span></button></div>`).join("")}
           </div>
+          <div id="activation-tools" class="document-bar">
+            <span id="activation-status" class="report muted" role="status"></span>
+            <button id="apply-candidate"><ha-icon icon="mdi:restart">&#8635;</ha-icon><span data-text="applyCandidate"></span></button>
+          </div>
           <details id="capabilities"><summary data-text="capabilities"></summary><p id="limitsNote" class="muted"></p><dl id="limits"></dl></details>
         </section>
         <section class="workspace">
@@ -184,6 +199,7 @@ class HomePanelConfig extends HTMLElement {
     this.$("reload").onclick = () => this._loadPanels();
     this.$("panel").onchange = event => this._select(event.target.value);
     this.$("refresh").onclick = () => this._statusRequest();
+    this.$('apply-candidate').onclick = () => this._applyCandidate();
     this.$("tab-original").onclick = () => this._setTab("original");
     this.$("tab-editor").onclick = () => this._setTab("editor");
     this.$("tab-check").onclick = () => this._setTab("check");
@@ -279,6 +295,8 @@ class HomePanelConfig extends HTMLElement {
       this._attempted = false;
       this.$('draft-editor').invalidateStorage();
       this.$('draft-editor').invalidateImport();
+      this._applyId = null;
+      if (this._activation) this._activation = {...this._activation, state:'unknown'};
     }
     this._lastConnection = value?.connection;
     this._lastOnline = this._online;
@@ -295,6 +313,7 @@ class HomePanelConfig extends HTMLElement {
     this._epoch++;
     this._entry = "";
     this._status = this._original = this._validation = null;
+    this._activation = this._applyId = null;
     this._input = "";
     this._inputVersion++;
     this._checkedVersion = -1;
@@ -389,7 +408,24 @@ class HomePanelConfig extends HTMLElement {
     this._fresh = true;
     this._validationFresh = false;
     this._needsRefresh = result.requires_status_refresh;
+    this._activation = result.activation || null;
+    if (Object.hasOwn(result, 'apply_id')) this._applyId = result.apply_id;
+    if (this._activation?.state !== 'ready') this._applyId = null;
     this.$('draft-editor').invalidate();
+  }
+
+  get _canApply() {
+    return this._canJob && this._applyId && this._activation?.state === 'ready';
+  }
+
+  async _applyCandidate() {
+    if (!this._canApply) return;
+    const target = this._activation;
+    if (!confirm(`${this.t('confirmApply')}\n\nr${target.revision} · ${target.sha256.slice(0, 12)}`)) return;
+    const apply_id = this._applyId;
+    this._applyId = null;
+    this._activation = {...target, state:'unknown'};
+    await this._request('apply', {entry_id:this._entry, apply_id}, result => this._acceptStatus(result));
   }
 
   async _editOriginal() {
@@ -586,6 +622,15 @@ class HomePanelConfig extends HTMLElement {
     this.$("message").textContent = error ? error[this._lang === "ru" ? 1 : 0] : this.t(this._notice);
     this.$("message").className = error ? "warning" : "muted";
     this.$("metadata").hidden = !this._status;
+    const activation = this._activation && {...this._activation, state:this._fresh ? this._activation.state : 'unknown'};
+    const states = {ready:'activationReady', restarting:'activationRestarting', confirming:'activationConfirming',
+      confirmed:'activationConfirmed', rolled_back:'activationRolledBack', unknown:'activationUnknown',
+      unchanged:'activationUnchanged', unverified:'activationUnverified'};
+    this.$('activation-status').textContent = activation ?
+      `${this.t(states[activation.state] || 'activationUnknown')} · r${activation.revision} · ${activation.sha256.slice(0, 12)}` : this.t('noActivation');
+    this.$('activation-status').className = 'report ' + (!activation || activation.state === 'ready' ? 'muted' :
+      activation.state === 'confirmed' ? 'success' : 'warning');
+    this.$('apply-candidate').disabled = !this._canApply;
     if (this._status) {
       const state = this._status.status;
       const caps = this._status.capabilities;

@@ -79,7 +79,7 @@ async def test_list_status_and_credential_redaction(hass, ws, entry, panel):
     assert all(method == "GET" for method, *_ in panel.calls)
 
 
-@pytest.mark.parametrize("operation", ["panels", "status", "import", "validate", "entities", "send"])
+@pytest.mark.parametrize("operation", ["panels", "status", "import", "validate", "entities", "send", "apply"])
 async def test_non_admin_is_rejected_before_any_device_io(connect_ws, hass_read_only_access_token, entry, panel, operation):
     ws = await connect_ws(access_token=hass_read_only_access_token)
     data = {"type": PREFIX + operation}
@@ -91,6 +91,8 @@ async def test_non_admin_is_rejected_before_any_device_io(connect_ws, hass_read_
         data["document"] = "broken"
     if operation == "send":
         data["import_id"] = "a" * 32
+    if operation == "apply":
+        data["apply_id"] = "a" * 32
     before = len(panel.calls)
     await ws.send_json_auto_id(data)
     result = await ws.receive_json()
@@ -104,7 +106,7 @@ def test_anonymous_guard_rejects_before_scheduling_io(hass, entry, panel):
     before = len(panel.calls)
     for handler in (panel_ws.ws_panels, panel_ws.ws_status, panel_ws.ws_import, panel_ws.ws_validate,
                     panel_ws.ws_draft_get, panel_ws.ws_draft_save, panel_ws.ws_draft_delete, panel_ws.ws_model_check,
-                    panel_ws.ws_entities, panel_ws.ws_model_changes, panel_ws.ws_draft_history_get, panel_ws.ws_send):
+                    panel_ws.ws_entities, panel_ws.ws_model_changes, panel_ws.ws_draft_history_get, panel_ws.ws_send, panel_ws.ws_apply):
         with pytest.raises(Unauthorized):
             handler(hass, connection, {"id": 1, "entry_id": entry.entry_id})
     assert len(panel.calls) == before
@@ -183,9 +185,10 @@ async def test_source_and_request_fields_are_allowlisted(ws, entry, panel, paylo
     assert len(panel.calls) == before
 
 
-@pytest.mark.parametrize("operation", ["status", "import", "validate"])
+@pytest.mark.parametrize("operation", ["status", "import", "validate", "apply"])
 async def test_unloaded_wrong_domain_and_missing_entries(hass, ws, entry, panel, operation):
     extra = {"source": "active"} if operation == "import" else {"document": "broken"} if operation == "validate" else {}
+    if operation == "apply": extra = {"apply_id":"a" * 32}
     unknown = MockConfigEntry(domain="other_domain")
     unknown.add_to_hass(hass)
     for entry_id in ("missing", unknown.entry_id):
@@ -389,7 +392,7 @@ async def test_identity_mismatch_cannot_import_or_validate(ws, entry, panel):
 
 async def test_no_write_or_actuator_commands_registered(ws, entry, panel):
     before = len(panel.calls)
-    for operation in ("upload", "apply", "restore", "discard", "call_service", "press"):
+    for operation in ("upload", "restore", "discard", "call_service", "press"):
         result = await command(ws, entry, operation)
         assert result["error"]["code"] == "unknown_command"
     assert len(panel.calls) == before

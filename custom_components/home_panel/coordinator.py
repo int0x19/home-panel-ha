@@ -32,7 +32,8 @@ def create_client(
     """Use HA's shared session without assuming its ownership."""
     return PanelConfigClient(
         AiohttpTransport(async_get_clientsession(hass), data[CONF_URL],
-                         allow_candidate_upload=expected_device_id is not None),
+                         allow_candidate_upload=expected_device_id is not None,
+                         allow_candidate_apply=expected_device_id is not None),
         data[CONF_ACCESS_KEY],
         expected_device_id=expected_device_id,
     )
