@@ -37,6 +37,15 @@ This slice passes 214 HA/component-browser and 52 installed-core tests, with
 compatibility/decode/codegen checks and separate flash ASan/UBSan/two loopback
 browser flows. No full firmware sweep, ESP32 build/OTA or release is implied.
 
+The following firmware-only private authority backend adds the persistent
+two-copy owner journal and leased owner/epoch write check. Native Claim/Rotate/
+Release, restart/failure paths, revoked keys and the preceding-writer downgrade
+fence are host-tested. No HTTP handover, HA writer, managed readiness or physical
+activation is enabled. This checkpoint reruns 52 installed-core tests and the
+40-test HA release/setup/lifecycle subset, not the full HA/browser suite.
+Core 0.1.2 and its tested functional source pin remain unchanged. Next connect
+authenticated handover/scoped credentials and local recovery, then Send/Apply.
+
 Release 0.1.1 is published for Marketplace with bundled core 0.1.1. CI passes,
 including 204 HA/browser tests on HA 2026.11.0. The flash-NVS compatibility fix
 was checked against the running ESP32: factory identity/capabilities, exact
@@ -83,6 +92,7 @@ its 16 KiB input ceiling is not the host schema's larger provisional budget.
 - [x] Prepare the additive `capabilities.v1` boundary and explicit client identity pinning on Linux (2026-11-07): factory eFuse MAC-48 ID independent of IP/name/boot/SD, ID/session guards in status/jobs/metadata, one main-loop cached GET document, actual boot ceilings and inventories shared with the C++ decoder. Test restart/replacement/invalid identity, repeated read-only cache access, configured input limits and legacy fallback. Report action-preview-only/model-only support, zero subscriptions, unmeasured limits, incomplete loaded asset inventory and unmanaged/not-enforced authority. No target build/OTA, managed write enablement or physical identity/memory claim; see [prepared metadata](docs/CORE_CONTRACT.md#prepared-capabilities-extension).
 - [ ] Finish and accept device metadata on the physical board: verify factory identity across restart/network changes, complete loaded font/icon inventory and measured per-board input/room/widget/subscription budgets. Distinguish accepted decoder syntax from renderable assets and compiled-only room families. Keep schema/protocol negotiation and reject incompatible documents rather than downgrading controls silently; the prepared configured ceilings do not complete this gate.
 - [ ] Define and enforce local versus HA-managed configuration authority, ownership handover and authenticated emergency local recovery. Compare the current revision/digest before writes; a second HA instance, browser, reconnect or local import must not silently overwrite another editor's work. Managed mode is planned, not enforced by the current uploader.
+- [x] Prepare the private firmware authority backend (2026-11-17): persist a bounded two-copy NVS owner journal, recheck owner/epoch in the native config transaction, and implement explicit Claim/Rotate/Release with exact configuration-base/trial guards. Native fault/restart/downgrade checks pass. This is not the public HTTP/HA handover or managed activation gate above; keep that gate open and all deployment permissions false.
 - [ ] Specify portable import/export and migration/precedence for existing YAML defaults, socket aliases, Plant overrides, light presets and backlight preferences. Keep hardware, Wi-Fi/API/OTA credentials, executable code and live entity readings out of runtime JSON. Preserve compatible recovery documents on schema/firmware downgrade.
 
 Exit gate: a documented compatibility/authority matrix and shared test fixtures;

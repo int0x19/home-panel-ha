@@ -26,6 +26,15 @@ generation and require an explicit fresh status, without replay. This metadata
 stays on the backend; no frontend-supplied guard can claim an owner or permission.
 Persistent ownership/scoped credentials and explicit handover remain pending.
 
+The subsequent firmware-only source step prepares private NVS owner persistence
+and a leased native write-authorization gate, including Claim/Rotate/Release.
+It does not add public HTTP handover, change the core read/check API, expose
+credentials in the frontend or enable managed capability flags. Raw owner keys
+are not stored in runtime JSON or its exports. Exact core source/version pins
+stay unchanged; authenticated transport, explicit local recovery and guarded
+HA Send/Apply remain next. See firmware `docs/RUNTIME_AUTHORITY.md` for the
+private record/failure contract, including the non-transparent downgrade fence.
+
 ## Prepared Capabilities Extension
 
 Compatibility update, 2026-11-16: the deployed panel now exposes valid factory
