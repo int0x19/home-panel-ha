@@ -41,9 +41,9 @@ def panel_wire(monkeypatch, panel):
     original = coordinator.AiohttpTransport
     transports = []
 
-    def create_transport(session, origin):
+    def create_transport(session, origin, **options):
         # Keep production origin validation and the HA-owned session, replace only I/O.
-        transport = original(session, origin)
+        transport = original(session, origin, **options)
 
         async def request(method, path, *, headers, body, max_bytes):
             if headers.get("Authorization") != "Bearer " + TOKEN:

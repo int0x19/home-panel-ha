@@ -1,4 +1,4 @@
-"""Administrator-only read/check API; credentials and nonces stay in the backend."""
+"""Administrator-only configuration API; panel credentials/guards stay backend-only."""
 
 import asyncio
 from dataclasses import asdict
@@ -14,11 +14,12 @@ from homeassistant.helpers.update_coordinator import UpdateFailed
 
 from .const import DOMAIN
 from .coordinator import PanelConfigEntry, PanelCoordinator
+from .config_backend import candidate_available
 from .draft_storage import MAX_GENERATION, DraftError, DraftInvalid, prepare_record, repository
 from .draft_validation import ModelCheckBusy, ModelCheckInput, async_check_model
 from .draft_changes import async_summarize_changes
 from .entity_catalog import ACTION_DOMAINS, CATALOG_DOMAINS, async_catalog
-from ._core import IdentityMismatch, OutcomeUnknown, PanelError, PanelHTTPError, ProtocolError, Source
+from ._core import CandidateConflict, IdentityMismatch, OutcomeUnknown, PanelError, PanelHTTPError, ProtocolError, Source
 from ._core import MAX_DOCUMENT_BYTES, RuntimeSnapshot
 from ._core import (
     BackendBusy, BackendClosed, InvalidImport, InvalidInput, ReadConflict, RefreshRequired,
@@ -31,7 +32,7 @@ PREFIX = DOMAIN + "/config/"
 @callback
 def async_register(hass: HomeAssistant) -> None:
     for command in (ws_panels, ws_status, ws_import, ws_validate, ws_draft_get, ws_draft_save, ws_draft_delete,
-                    ws_model_check, ws_entities, ws_model_changes, ws_draft_history_get):
+                    ws_model_check, ws_entities, ws_model_changes, ws_draft_history_get, ws_send):
         websocket_api.async_register_command(hass, command)
 
 
@@ -51,11 +52,13 @@ def _snapshot(entry: PanelConfigEntry, value: RuntimeSnapshot) -> dict[str, Any]
         "entry_id": entry.entry_id,
         "scope": "readings_preview_only" if "widget.sensor" in caps.features else "action_preview_only",
         "requires_status_refresh": entry.runtime_data.read_backend.requires_status_refresh,
+        "candidate_send_available": candidate_available(value),
         "status": {
             "storage": state.storage, "storage_ready": state.storage_ready,
             "sd_ready": state.sd_ready, "busy": state.busy, "restarting": state.restarting,
             "loaded_source": state.loaded_source, "loaded_revision": state.loaded_revision,
             "max_bytes": state.max_bytes, "features": sorted(state.features),
+            "high_water_revision": state.flash_write.high_water_revision if state.flash_write else None,
             "files": {str(source): asdict(info) for source, info in
                       zip((*Source, "temporary"), state.files, strict=True)},
         },
@@ -75,13 +78,15 @@ def _snapshot(entry: PanelConfigEntry, value: RuntimeSnapshot) -> dict[str, Any]
 
 def _error(error: Exception) -> tuple[str, str]:
     if isinstance(error, BackendBusy):
-        return "panel_busy", "Another read/check operation is in progress"
+        return "panel_busy", "Another panel operation is in progress"
     if isinstance(error, BackendClosed):
         return "panel_unavailable", "Panel integration is unloaded"
     if isinstance(error, RefreshRequired):
         return "status_refresh_required", "Refresh status before another read/check job"
     if isinstance(error, OutcomeUnknown):
-        return "outcome_unknown", "Read/check result unknown; refresh status, do not retry automatically"
+        return "outcome_unknown", "Result unknown; inspect status and import again, do not retry automatically"
+    if isinstance(error, CandidateConflict):
+        return "candidate_conflict", "Imported base or checked candidate changed; import and review again"
     if isinstance(error, ReadConflict):
         return "read_conflict", "Panel boot, capabilities or source changed; refresh status"
     if isinstance(error, InvalidInput):
@@ -123,7 +128,8 @@ async def _run(hass: HomeAssistant, connection: websocket_api.ActiveConnection,
             result = {"source": checked.document.source.value,
                       "revision": checked.document.revision, "sha256": checked.document.sha256,
                       "bytes": len(checked.document.data), "document": checked.document.data.decode("utf-8"),
-                      "validation": asdict(checked.validation), "validator": "panel_shared"}
+                      "validation": asdict(checked.validation), "validator": "panel_shared",
+                      "import_id": backend.import_id}
         else:
             document = msg["document"]
             # Check character count before UTF-8 allocation; the device byte ceiling
@@ -134,9 +140,19 @@ async def _run(hass: HomeAssistant, connection: websocket_api.ActiveConnection,
                 data = document.encode("utf-8")
             except UnicodeError:
                 raise InvalidInput("Invalid UTF-8 input") from None
-            checked = await backend.check_document(data)
-            snapshot = checked.snapshot
-            result = {"validation": asdict(checked.validation), "validator": "panel_shared"}
+            if operation == "send":
+                sent = await backend.send_candidate(data, msg["import_id"])
+                snapshot = sent.snapshot
+                result = {"candidate": {"revision": sent.revision, "sha256": sent.sha256,
+                          "bytes": sent.bytes, "changed": sent.changed, "applied": False}}
+            elif "import_id" in msg:
+                canonical, validation, snapshot = await backend.prepare_candidate(data, msg["import_id"])
+                result = {"validation": asdict(validation), "validator": "panel_shared",
+                          "candidate_document": canonical.decode("utf-8") if validation.valid else None}
+            else:
+                checked = await backend.check_document(data)
+                snapshot = checked.snapshot
+                result = {"validation": asdict(checked.validation), "validator": "panel_shared"}
         current = _entry(hass, entry.entry_id)
         if backend.closed or current is None or current.runtime_data is not coordinator:
             raise BackendClosed("Panel integration changed during the operation")
@@ -209,11 +225,21 @@ async def ws_import(hass: HomeAssistant, connection: websocket_api.ActiveConnect
 
 
 @websocket_api.websocket_command({"type": PREFIX + "validate", vol.Required("entry_id"): str,
-                                 vol.Required("document"): str})
+                                 vol.Required("document"): str,
+                                 vol.Optional("import_id"): vol.All(str, vol.Length(min=32, max=32))})
 @websocket_api.require_admin
 @websocket_api.async_response
 async def ws_validate(hass: HomeAssistant, connection: websocket_api.ActiveConnection, msg: dict[str, Any]) -> None:
     await _run(hass, connection, msg, "validate")
+
+
+@websocket_api.websocket_command({"type": PREFIX + "send", vol.Required("entry_id"): str,
+                                 vol.Required("document"): str,
+                                 vol.Required("import_id"): vol.All(str, vol.Length(min=32, max=32))})
+@websocket_api.require_admin
+@websocket_api.async_response
+async def ws_send(hass: HomeAssistant, connection: websocket_api.ActiveConnection, msg: dict[str, Any]) -> None:
+    await _run(hass, connection, msg, "send")
 
 
 @websocket_api.websocket_command({"type": PREFIX + "model_check", vol.Required("entry_id"): str,

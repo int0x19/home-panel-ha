@@ -14,11 +14,18 @@ from custom_components.home_panel._core import AiohttpTransport
 from support import DEVICE_ID, TOKEN
 
 
-async def test_ha_client_keeps_candidate_upload_disabled(hass, monkeypatch):
+async def test_pairing_is_read_only_and_paired_client_only_opts_into_upload(hass, monkeypatch):
     monkeypatch.setattr(coordinator, "AiohttpTransport", AiohttpTransport)
-    client = coordinator.create_client(hass, {CONF_URL: "http://127.0.0.1:1", CONF_ACCESS_KEY: TOKEN}, DEVICE_ID)
-    # The shared library gaining Send must not implicitly enable HA writes.
+    data = {CONF_URL: "http://127.0.0.1:1", CONF_ACCESS_KEY: TOKEN}
+    client = coordinator.create_client(hass, data)
+    # Unpaired discovery stays read-only; a paired client only adds Upload.
     for suffix in ("upload", "apply", "discard", "restore", "scan"):
+        with pytest.raises(ValueError, match="Unsupported panel request"):
+            await client._transport.request("POST", "/panel/runtime/api/" + suffix,
+                                            headers={}, body=b"{}", max_bytes=16384)
+    client = coordinator.create_client(hass, data, DEVICE_ID)
+    assert client._transport._allow_candidate_upload
+    for suffix in ("apply", "discard", "restore", "scan"):
         with pytest.raises(ValueError, match="Unsupported panel request"):
             await client._transport.request("POST", "/panel/runtime/api/" + suffix,
                                             headers={}, body=b"{}", max_bytes=16384)

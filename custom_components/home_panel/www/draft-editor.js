@@ -10,6 +10,7 @@ const labels = {
     tap:'Tap', hold:'Hold', confirm:'Confirmation', enabled:'Enabled', stop:'Stop control', check:'On ESP32', checkHA:'In HA', hostModel:'HA model',
     export:'Export draft', reset:'Discard local draft', local:'Local draft', notChecked:'Not checked', previous:'Previous validation',
     saveHA:'Save in HA', loadHA:'Load HA draft', deleteHA:'Delete HA draft', savedHA:'Saved in HA', unsaved:'Unsaved',
+    sendPanel:'Send to panel', confirmSend:'Save this candidate on the panel? It will not be applied or restart the panel.', sentCandidate:'Candidate saved; not applied',
     storageUnknown:'HA draft status unknown', conflict:'HA draft version conflict', discardLoad:'Replace local changes with the HA draft?',
     confirmDeleteHA:'Delete the saved HA draft, history and local edits?', restoreInvalid:'Saved draft is not editable',
     history:'HA history', historyEmpty:'No earlier versions', openHistory:'Open as draft',
@@ -44,6 +45,7 @@ const labels = {
     tap:'Нажатие', hold:'Удержание', confirm:'Подтверждение', enabled:'Включено', stop:'Кнопка остановки', check:'На ESP32', checkHA:'В HA', hostModel:'Модель HA',
     export:'Экспорт черновика', reset:'Отбросить локальный черновик', local:'Локальный черновик', notChecked:'Не проверено', previous:'Предыдущая проверка',
     saveHA:'Сохранить в HA', loadHA:'Загрузить черновик HA', deleteHA:'Удалить черновик HA', savedHA:'Сохранён в HA', unsaved:'Не сохранён',
+    sendPanel:'Отправить на панель', confirmSend:'Сохранить кандидата на панели? Он не будет применён, панель не перезагрузится.', sentCandidate:'Кандидат сохранён, не применён',
     storageUnknown:'Статус черновика HA неизвестен', conflict:'Конфликт версии черновика HA', discardLoad:'Заменить локальные изменения черновиком из HA?',
     confirmDeleteHA:'Удалить сохранённый черновик HA, историю и локальные правки?', restoreInvalid:'Сохранённый черновик недоступен для редактирования',
     history:'История HA', historyEmpty:'Предыдущих версий нет', openHistory:'Открыть как черновик',
@@ -109,10 +111,11 @@ class HomePanelDraft extends HTMLElement {
           <button id="draft-model-check"><ha-icon icon="mdi:check-decagram-outline">&#10003;</ha-icon><span data-label="checkHA"></span></button>
           <button id="draft-check"><ha-icon icon="mdi:check">&#10003;</ha-icon><span data-label="check"></span></button>
           <button id="draft-export" class="icon" data-tool="export"><ha-icon icon="mdi:download">&#8595;</ha-icon></button>
+          <button id="draft-send"><ha-icon icon="mdi:tray-arrow-up">&#8593;</ha-icon><span data-label="sendPanel"></span></button>
           <button id="draft-reset" class="icon" data-tool="reset"><ha-icon icon="mdi:undo">&#8630;</ha-icon></button>
         </div>
         <p id="draft-model-status" class="report" role="status"></p>
-        <p id="draft-status" class="report" role="status"></p><p id="draft-error" class="warning" role="status" hidden></p>
+        <p id="draft-status" class="report" role="status"></p><p id="draft-send-status" class="report success" role="status" hidden></p><p id="draft-error" class="warning" role="status" hidden></p>
         <div id="draft-change-tools" class="draft-toolbar">
           <label class="grow"><span data-label="compareWith"></span><select id="draft-compare-base"><option value="original" data-label="originalBase"></option><option value="saved" data-label="savedBase"></option></select></label>
           <button id="draft-changes" type="button"><ha-icon icon="mdi:file-compare">&#8800;</ha-icon><span data-label="changes"></span></button>
@@ -239,6 +242,10 @@ class HomePanelDraft extends HTMLElement {
       }
     };
     this.$('draft-export').onclick = () => this._export();
+    this.$('draft-send').onclick = () => {
+      if (this._canSend() && confirm(this.t('confirmSend'))) this.dispatchEvent(new CustomEvent('draft-send', {
+        bubbles:true, composed:true, detail:{document:this._candidateDocument, import_id:this._sendImport, version:this._version}}));
+    };
     this.$('draft-reset').onclick = () => { if (confirm(this.t('discardDraft'))) this.clear(); };
     this.$('draft-save-ha').onclick = () => {
       if (this._draft && this._storeFresh && !this._fields && this._editing === null && this._context.storageOnline) this._storageEvent('save', {
@@ -254,6 +261,7 @@ class HomePanelDraft extends HTMLElement {
   get version() { return this._version; }
   get source() { return this._base?.source; }
   get sourceHash() { return this._base?.sha256; }
+  get importId() { return this._sendImport; }
   get document() { return this._draft ? structuredClone(this._draft) : null; }
   set context(value) {
     if (value.catalogKey !== this._context.catalogKey || !value.storageOnline) this._closeEntities();
@@ -271,6 +279,7 @@ class HomePanelDraft extends HTMLElement {
       assertDraftBudget(doc, caps);
       this._draft = doc; this._base = {source:original.source, sha256:original.sha256, revision:original.revision};
       this._origin = {source:original.source, sha256:original.sha256, revision:original.revision, document:original.document};
+      this._sendImport = original.import_id || null; this._candidateDocument = this._sent = null;
       this._unsaved = true;
       this._restoredGeneration = null;
       this._caps = structuredClone(caps); this._room = doc.rooms[0].id;
@@ -284,6 +293,7 @@ class HomePanelDraft extends HTMLElement {
     this._changesError = false; this.$('draft-compare-base').value = 'original';
     this._room = ''; this._editing = null; this._fields = false; this._error = ''; this._version++;
     this._origin = null; this._unsaved = false;
+    this._sendImport = this._candidateDocument = this._sent = null;
     this._restoredGeneration = null; this._historyError = '';
     if (resetStorage) { this._storeRevision = null; this._storeFresh = false; this._storeHasRecord = false; this._storeGeneration = 0; this._storeError = ''; this._checkpointDocument = null; this._historyItems = []; }
     for (const input of this.shadowRoot.querySelectorAll('input')) { input.value = ''; input.checked = false; }
@@ -359,10 +369,27 @@ class HomePanelDraft extends HTMLElement {
     }
     for (const button of this.$('draft-history-items').querySelectorAll('button')) button.disabled = this._context.busy || !this._storeFresh || !this._context.storageOnline;
   }
-  invalidate() { this._validationFresh = false; this._controls(); }
-  acceptValidation(report, version) {
+  invalidate() { this._validationFresh = false; this._candidateDocument = null; this._controls(); }
+  invalidateImport() { this._sendImport = null; this.invalidate(); }
+  bindImport(original) {
+    this._sendImport = this._origin && original.source === this._origin.source && original.sha256 === this._origin.sha256 &&
+      original.revision === this._origin.revision && JSON.stringify(original.capabilities) === JSON.stringify(this._caps) ? original.import_id : null;
+    this._sent = null; this.invalidate();
+  }
+  _canSend() {
+    return this._context.canSend && this._sendImport && this._candidateDocument && this._validation?.valid &&
+      this._validationFresh && this._validationVersion === this._version && this._context.fresh &&
+      !this._context.busy && !this._fields && this._editing === null && !this._capsChanged();
+  }
+  acceptSent(receipt, version) {
+    this.invalidateImport();
+    if (version === this._version) this._sent = receipt;
+    this._controls();
+  }
+  acceptValidation(report, version, candidateDocument = null) {
     if (!this._draft || this._version !== version) return;
-    this._validation = report; this._validationVersion = version; this._validationFresh = true; this._controls();
+    this._validation = report; this._validationVersion = version; this._validationFresh = true;
+    this._candidateDocument = report.valid ? candidateDocument : null; this._controls();
   }
   acceptModelValidation(report, version) {
     if (!this._draft || this._version !== version) return;
@@ -610,6 +637,10 @@ class HomePanelDraft extends HTMLElement {
     this.$('draft-status').textContent = [this._fields && this.t('pending'), this._context.sourceCurrent === false && this.t('changedSource'), this._capsChanged() && this.t('changedCaps'),
       'ESP32: ' + (this._validation ? `${stale ? this.t('previous') + ': ' : ''}${this.t(this._validation.valid ? 'accepted' : 'rejected')}` : this.t('notChecked'))].filter(Boolean).join(' \u00b7 ');
     this.$('draft-status').className = 'report ' + (this._validation && !stale ? this._validation.valid ? 'success' : 'warning' : 'muted');
+    this.$('draft-send-status').hidden = !this._sent;
+    this.$('draft-send-status').textContent = this._sent ? `${this.t('sentCandidate')} \u00b7 r${this._sent.revision} \u00b7 ${this._sent.sha256.slice(0, 12)}` : '';
+    this.$('draft-send-status').hidden = !this._sent;
+    this.$('draft-send-status').textContent = this._sent ? `${this.t('sentCandidate')} \u00b7 r${this._sent.revision} \u00b7 ${this._sent.sha256.slice(0, 12)}` : '';
     const modelStale = this._fields || this._modelValidationVersion !== this._version;
     this.$('draft-model-status').textContent = this.t('hostModel') + ': ' + (this._modelValidation ?
       `${modelStale ? this.t('previous') + ': ' : ''}${this.t(this._modelValidation.valid ? 'accepted' : 'rejected')}` : this.t('notChecked'));
@@ -634,11 +665,13 @@ class HomePanelDraft extends HTMLElement {
         (button.classList.contains('draft-widget-main') && !editableAction(widget, this._caps) && !(editableSensor(widget, this._caps) && !opaque));
     }
     this.$('draft-check').disabled = blocked || this._fields || formOpen || !this._context.canValidate || this._capsChanged();
+    this.$('draft-send').disabled = !this._canSend();
     this.$('draft-model-check').disabled = blocked || this._fields || formOpen || !this._context.storageOnline;
     this.$('draft-changes').disabled = blocked || this._fields || formOpen || !this._context.storageOnline || !this._comparisonBase();
     this.$('draft-compare-base').disabled = blocked || this._fields || formOpen;
     this.$('draft-compare-base').querySelector('[value="saved"]').disabled = !this._storeFresh || !this._checkpointDocument;
     this.$('draft-export').disabled = blocked || this._fields || formOpen;
+    this.$('draft-send').disabled = !this._canSend();
     this.$('draft-update-action').disabled = blocked || this._capsChanged();
     this.$('draft-update-sensor').disabled = blocked || this._capsChanged();
     this.$('draft-choose-sensor').disabled = blocked || !this._context.storageOnline || this._capsChanged();

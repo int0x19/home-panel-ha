@@ -71,6 +71,7 @@ const errors = {
   incompatible_response: ["Firmware metadata missing, stale or incompatible", "Метаданные прошивки отсутствуют, устарели или несовместимы"],
   invalid_document: ["Invalid document or byte limit exceeded", "Некорректный документ или превышен лимит байт"],
   invalid_import: ["Imported file failed validation", "Импортированный файл не прошёл проверку"],
+  candidate_conflict: ["Import and check the draft again before sending", "Повторно импортируйте и проверьте черновик перед отправкой"],
   not_found: ["File or receipt unavailable", "Файл или результат недоступен"],
   read_conflict: ["Panel boot or source changed; refresh status", "Панель или источник изменились: обновите статус"],
   expired: ["Receipt expired; refresh status", "Результат устарел: обновите статус"],
@@ -205,6 +206,7 @@ class HomePanelConfig extends HTMLElement {
     this.$("download").onclick = () => this._download();
     this.$('edit-original').onclick = () => this._editOriginal();
     this.$('draft-editor').addEventListener('draft-validate', event => this._validateDraft(event.detail));
+    this.$('draft-editor').addEventListener('draft-send', event => this._sendDraft(event.detail));
     this.$('draft-editor').addEventListener('draft-model-check', event => this._checkModel(event.detail));
     this.$('draft-editor').addEventListener('draft-changes', event => this._compareDraft(event.detail));
     this.$('draft-editor').addEventListener('draft-entities', event => this._queryEntities(event.detail));
@@ -276,6 +278,7 @@ class HomePanelConfig extends HTMLElement {
       this._needsRefresh = Boolean(this._entry);
       this._attempted = false;
       this.$('draft-editor').invalidateStorage();
+      this.$('draft-editor').invalidateImport();
     }
     this._lastConnection = value?.connection;
     this._lastOnline = this._online;
@@ -400,7 +403,7 @@ class HomePanelConfig extends HTMLElement {
       if (await result !== 'discard') return;
     }
     if (epoch !== this._epoch || !this._admin || !this.isConnected) return;
-    const highWater = Math.max(this._status?.status.loaded_revision || this._original.revision, ...Object.values(this._status?.status.files || {}).map(f => f.revision));
+    const highWater = Math.max(this._status?.status.high_water_revision || 0, this._status?.status.loaded_revision || this._original.revision, ...Object.values(this._status?.status.files || {}).map(f => f.revision));
     this.$('draft-editor').begin(this._original, this._status?.capabilities || this._original.capabilities, highWater);
     this._setTab('editor');
   }
@@ -408,10 +411,20 @@ class HomePanelConfig extends HTMLElement {
   async _validateDraft(detail) {
     const draft = this.$('draft-editor');
     if (!this._canJob || detail.version !== draft.version) return;
-    await this._request('validate', {entry_id:this._entry, document:detail.document}, result => {
+    const import_id = this._status?.candidate_send_available ? draft.importId : null;
+    await this._request('validate', {entry_id:this._entry, document:detail.document, ...(import_id ? {import_id} : {})}, result => {
       this._acceptStatus(result);
-      draft.acceptValidation(result.validation, detail.version);
+      draft.acceptValidation(result.validation, detail.version, result.candidate_document);
     });
+  }
+
+  async _sendDraft(detail) {
+    const draft = this.$('draft-editor');
+    if (!this._canJob || !this._status?.candidate_send_available || detail.version !== draft.version || !detail.import_id) return;
+    await this._request('send', {entry_id:this._entry, document:detail.document, import_id:detail.import_id}, result => {
+      this._acceptStatus(result);
+      draft.acceptSent(result.candidate, detail.version);
+    }, () => draft.invalidateImport());
   }
 
   async _checkModel(detail) {
@@ -483,6 +496,7 @@ class HomePanelConfig extends HTMLElement {
     await this._request("import", {entry_id: this._entry, source}, result => {
       this._acceptStatus(result);
       this._original = result;
+      this.$('draft-editor').bindImport(result);
       this.$("document").textContent = result.document;
       this.$("sha").textContent = result.sha256;
       this._notice = "imported";
@@ -627,7 +641,8 @@ class HomePanelConfig extends HTMLElement {
     const draft = this.$('draft-editor');
     draft.context = {language:this._lang, capabilities:this._status?.capabilities, states:this._hass?.states,
       catalogKey:this._epoch,
-      revisionHighWater:Math.max(this._status?.status.loaded_revision || 0, ...Object.values(this._status?.status.files || {}).map(file => file.revision || 0)),
+      revisionHighWater:Math.max(this._status?.status.high_water_revision || 0, this._status?.status.loaded_revision || 0, ...Object.values(this._status?.status.files || {}).map(file => file.revision || 0)),
+      canSend:this._canJob && !!this._status?.candidate_send_available,
       canValidate:this._canJob, fresh:this._fresh && !this._needsRefresh, busy:this._busy,
       storageOnline:this._admin && this._online && !!this._selected,
       sourceCurrent:!this._status || !this._fresh ? null : !draft.source || this._status.status.files[draft.source]?.sha256 === draft.sourceHash};

@@ -21,7 +21,7 @@ from ._core import (
     RuntimeSnapshot,
 )
 from ._core import AiohttpTransport
-from ._core import PanelReadBackend
+from .config_backend import PanelConfigBackend
 
 _LOGGER = logging.getLogger(__name__)
 
@@ -31,7 +31,8 @@ def create_client(
 ) -> PanelConfigClient:
     """Use HA's shared session without assuming its ownership."""
     return PanelConfigClient(
-        AiohttpTransport(async_get_clientsession(hass), data[CONF_URL]),
+        AiohttpTransport(async_get_clientsession(hass), data[CONF_URL],
+                         allow_candidate_upload=expected_device_id is not None),
         data[CONF_ACCESS_KEY],
         expected_device_id=expected_device_id,
     )
@@ -47,7 +48,7 @@ class PanelCoordinator(DataUpdateCoordinator[RuntimeSnapshot]):
             self.client = create_client(hass, entry.data, entry.unique_id)
         except (KeyError, ValueError):
             raise ConfigEntryError("Invalid panel connection configuration") from None
-        self.read_backend = PanelReadBackend(self.client)
+        self.read_backend = PanelConfigBackend(hass, self.client)
         super().__init__(
             hass,
             _LOGGER,
