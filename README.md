@@ -15,7 +15,8 @@ submodules or handwritten copies of those implementations here.
 
 Current source development is **0.1.2** with a capability-gated
 [numeric-sensor/group editor](docs/HA_SENSOR_DRAFT.md) and explicit
-[candidate Send](docs/HA_CANDIDATE_SEND.md). It is not yet a
+[candidate Send](docs/HA_CANDIDATE_SEND.md) plus separate
+[Apply and activation inspection](docs/HA_CANDIDATE_APPLY.md). It is not yet a
 published Marketplace release and does not enable managed device deployment.
 The build examples below use the matching development core wheel.
 
@@ -104,6 +105,11 @@ retain administrator authorization, bounded validation and exact-original guards
 
 ## Roadmap And Docs
 
+Apply acceptance: **254 HA tests and 79 installed-core tests pass**. The
+[Apply workflow](docs/HA_CANDIDATE_APPLY.md) is now implemented in source and
+local archives, not yet published or installed in the user's HA. Next is guarded
+Discard/recovery, followed by separately authorized physical acceptance.
+
 Candidate Send acceptance: **232 tests pass** on HA 2026.11, including actual
 WS/HTTP/Chromium and self-contained manual/Marketplace archives; 66 pinned-core
 tests pass separately. This is source/host acceptance, not publication or an
@@ -124,8 +130,9 @@ fields and raw-check JSON, with explicit warnings for unsupported browsers.
 The [candidate Send workflow](docs/HA_CANDIDATE_SEND.md) checks exact canonical
 bytes on ESP32 and stores them as a flash candidate, without activation/restart.
 HA checkpoint Save, device Check, Send and Apply are independent operations.
-Next: explicit Apply/restart with observed running-model verification, followed
-by guarded Discard/recovery and separately authorized physical acceptance.
+The [Apply workflow](docs/HA_CANDIDATE_APPLY.md) requires explicit confirmation
+and reports a running configuration only after verified trial startup/readback.
+Next: guarded Discard/recovery and separately authorized physical acceptance.
 
 The source subtree history comes from `esp32panel` commit `b72b70f` (2026-11-07).
 The original firmware history is unchanged. Shared library history continues in

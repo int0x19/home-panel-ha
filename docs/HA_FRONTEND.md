@@ -7,8 +7,10 @@ sidebar at `/home-panel-config`. It provides read/import/check and a
 [room/action draft editor](HA_DRAFT_EDITOR.md) with explicit HA checkpoints and
 [flash candidate Send](HA_CANDIDATE_SEND.md). The existing
 [read/check backend](HA_READ_CHECK_API.md) remains in use; Send is an explicit
-extension, not activation. There are no Apply, firmware-upload or household-action
-controls, and unsupported firmware remains read/check-only.
+extension, not activation. [Apply](HA_CANDIDATE_APPLY.md) is now a separate saved-
+candidate action with explicit confirmation and verified outcome inspection.
+There are no firmware-upload or household-action controls; unsupported firmware
+cannot Apply. HA checkpoint editing/read-check remain available independently.
 
 The page's JavaScript/CSS live in `custom_components/home_panel/www` on the HA
 host, not ESP32. Registration uses the official async static-path/custom-panel

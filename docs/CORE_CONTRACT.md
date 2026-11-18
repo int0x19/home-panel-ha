@@ -78,12 +78,13 @@ inspection must verify the expected boot/generation/files, local first-frame/
 health confirmation and active export SHA before reporting `confirmed`.
 Rollback, still-confirming and unverified states remain distinct; no Apply retry.
 
-HA deliberately keeps `allow_candidate_apply=False`, exposes no Apply WebSocket
-command/control and does not retain an activation intent yet. Pairing is
-read/check-only; its paired client still opts only into Upload. The no-Apply
-transport/command and bundled-only import tests cover the new package. Next
-implement an explicit administrator Apply/inspection backend and UI, using the
-same per-panel gate and no automatic replay. See core `docs/CANDIDATE_APPLY.md`.
+At that checkpoint HA kept Apply disabled. The subsequent
+[HA Apply extension](HA_CANDIDATE_APPLY.md) opts paired clients into Apply and
+uses one server-held intent/one-use approval in the same per-panel gate. Explicit
+Refresh status inspects the outcome without replay; background polling remains
+GET-only. Pairing is still read/check-only and other mutation/actuator routes
+remain excluded. The functional core pin and version are unchanged by this HA
+step. See core `docs/CANDIDATE_APPLY.md` for its proof/phase contract.
 
 Consumer acceptance on 2026-11-17: all 79 installed-core tests and 232 HA
 component/browser/bundle tests pass with this functional pin. The firmware's

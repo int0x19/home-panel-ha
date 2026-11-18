@@ -2,7 +2,8 @@
 
 Development 0.1.2 adds an administrator-only **Send to panel** command to the
 existing draft editor. It stores a flash candidate, not a running configuration.
-No Apply, restart, Discard/recovery, SD upload or household command is enabled.
+Send never invokes Apply/restart. [Apply](HA_CANDIDATE_APPLY.md) is now a separate
+user-confirmed action; Discard/recovery, SD upload and household commands remain absent.
 It reuses HA authentication, the existing backend-only panel key and HTTP Upload
 job; no new ESP32 code, ownership service or HA entity-state connection is needed.
 
@@ -58,8 +59,9 @@ lifecycle/concurrency tests; keep the exact core source pin checked on upgrades.
 The Send checkpoint used core `7d8189d10c3fa464c18306965fcd9d43b0c5e705`;
 the current core lock is `ac24832776852116018ad47cdf120685c9d37567`, still
 unpublished version 0.1.2. Default core HTTP transport and unpaired discovery
-stay read/check-only; only a paired HA client opts into Upload. Core also
-supports separately opted-in Apply/inspection, but HA keeps Apply disabled. Restore,
+stay read/check-only. Paired HA clients now opt separately into Upload and Apply;
+the [HA Apply gate](HA_CANDIDATE_APPLY.md) requires a verified saved candidate,
+administrator request and one-use approval. Restore,
 Discard, scan and actuator routes remain excluded independently by transport.
 
 ## Acceptance And Next Step
@@ -79,6 +81,6 @@ Browser checks cover confirm/cancel, separate HA Save, pending fields, HA-only
 versus device checks, unknown outcomes, EN/RU and light/dark at 320/1280px.
 These are not physical panel acceptance, publication or a firmware OTA.
 
-Next implement explicit Apply/restart and verification of the actual running
-model, then guarded Discard/recovery. Keep management/dispatch flags unchanged
+Apply/inspection is now host-implemented separately; next add guarded
+Discard/recovery. Keep management/dispatch flags unchanged
 until their own acceptance and authorize any physical tests separately.

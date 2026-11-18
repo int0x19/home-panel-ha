@@ -23,6 +23,10 @@ only in HA and does not replace the device validator described here.
 The subsequent [candidate Send](HA_CANDIDATE_SEND.md) command shares this job
 gate. Only `validate` with an explicit `import_id` additionally canonicalizes
 and remembers a checked digest; ordinary raw validate remains unchanged.
+The later [Apply extension](HA_CANDIDATE_APPLY.md) shares that same gate. Status
+with a retained Apply intent now explicitly inspects activation and may verify
+an active export; ordinary status without such intent remains GET-only. No
+background write/inspection/retry is introduced.
 
 ## Commands
 

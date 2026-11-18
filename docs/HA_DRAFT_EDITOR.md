@@ -10,7 +10,9 @@ The HA companion now includes a structured **Draft** tab for the action pilot.
 It edits a local copy of a checked export, not the running panel. Three
 [HA-only checkpoint commands](HA_DRAFT_STORAGE.md) save/load/delete a draft.
 The subsequent [candidate Send extension](HA_CANDIDATE_SEND.md) explicitly stores
-checked bytes in flash; there is still no SD upload, Apply or household-action method.
+checked bytes in flash. [Apply](HA_CANDIDATE_APPLY.md) is a separate saved-candidate
+action, never an implicit deployment of unfinished fields. There is no SD upload
+or household-action method.
 Generated production `panel.yaml` rooms are unchanged.
 
 **Save in HA** explicitly retains one committed draft plus its exact original
