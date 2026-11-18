@@ -60,9 +60,10 @@ Apply responds with `apply_accepted: true`, metadata and activation state. It do
 not return a premature `applied: true`.
 
 Unpaired discovery remains read/check-only. Paired clients explicitly opt into
-Upload and Apply independently; restore/Discard/scan, authority and actuator
-routes are still excluded. The shared core pin remains
-`ac24832776852116018ad47cdf120685c9d37567`; no dependency upgrade is involved.
+Upload and Apply independently. Candidate maintenance has its own transport
+option and administrator commands. Restore, Scan, authority and actuator routes
+remain excluded. The current shared core pin is
+`acd494786db5a7a343fe3dd5fc3e53bbc47fd813`.
 
 ## Acceptance And Next Step
 
@@ -81,6 +82,5 @@ freshness, polling, unload during Apply and confirmation export, and reload with
 no replay. Browser cases cover confirmation/cancel, separation from Send,
 success/lost reply/rollback, disconnect and EN/RU light/dark at 320/1280px.
 
-Next add guarded Discard/recovery to this same small flow, then separately
-authorize installed-HA/ESP32 acceptance. Host tests and local archives do not
-publish a release, update the user's HA or perform an OTA/household action.
+Candidate removal and backup staging are now part of the same workflow.
+Next verify the complete flow on installed HA and ESP32.

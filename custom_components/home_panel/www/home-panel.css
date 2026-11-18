@@ -129,6 +129,8 @@ input:focus-visible { outline: 2px solid var(--primary-color, #00796b); outline-
   .file-row button { grid-column: 3; grid-row: 1 / 3; }
   .status-line { font-size: 12px; }
   .workspace { margin-top: 20px; }
+  #original > .document-bar { flex-wrap: wrap; }
+  #originalInfo { flex-basis: 100%; }
   pre { min-height: 220px; max-height: 400px; }
   .tabs button { flex: 1; padding-inline: 6px; min-width: 0; overflow-wrap: anywhere; }
   .draft-fields { grid-template-columns: minmax(0, 1fr); }

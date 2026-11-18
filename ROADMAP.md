@@ -4,7 +4,16 @@ The complete editor/integration backlog moved here from esp32panel at the
 repository split. Device firmware/native renderer acceptance stays in that repo;
 shared model/protocol work belongs to home-panel-core.
 
-## Current Checkpoint (2026-11-17)
+## Current Checkpoint (2026-11-18)
+
+Import **Candidate** and choose **Remove candidate** to clear the staged slot.
+Import **Backup** and choose **Stage backup as candidate** to stage the exact
+copy at a higher revision when the slot is empty. Both require the latest
+matching import and explicit confirmation. Recovery prepares a separate Apply.
+The next step is to verify the full sequence on installed HA and ESP32.
+All 262 HA tests passed with the pinned wheel, including Chromium and
+offline bundles. Shared core passed 80 tests and the Linux production flash
+client passed 12 checks.
 
 HA Apply/inspection is now host-accepted at functional commit `1730ee0`.
 All 254 HA tests and 79 installed-core tests pass. It uses the unchanged core
@@ -196,7 +205,7 @@ rooms and two-editor conflicts. Firmware changes and real actions are not needed
 - [x] Prepare guarded candidate Send in shared core and pin its tested source; keep HA's default transport read/check-only until the administrator backend/editor path is accepted. No Apply or MCU changes in this library step.
 - [x] Add explicit HA candidate Send using the existing administrator permission, backend-only key and bounded Upload job. Bind an imported snapshot/one-use marker to exact canonical bytes checked on ESP32; share the per-entry gate with reads/polls/unload, refuse stale tabs and retain no JSON buffer on HA. Report saved candidate, not activation; see [Send workflow](docs/HA_CANDIDATE_SEND.md).
 - [x] Add explicit HA Apply/restart with one-use server-held approval and separate activation inspection. Reuse the administrator/per-panel gate and core's original base, identity/session/generation/digest checks; distinguish acknowledgement, confirming, confirmed, rollback and unknown. Inspect only on explicit status refresh, preserve intent but not permission after lost replies and forget both on unload/reload. All 254 HA tests and 79 installed-core tests pass; no physical acceptance or owner/managed flags are implied. See [Apply workflow](docs/HA_CANDIDATE_APPLY.md).
-- [ ] Next add guarded Discard/recovery through the existing bounded main-loop API and per-panel gate. Recheck original base, identity/session/generation/digest, preserve known-good records and require explicit administrator approval. Do not activate owner records, add auth infrastructure or silently replay a mutation. Keep safe legacy SD compatibility separate.
+- [x] Expose flash Discard and backup staging through the existing main-loop API and per-panel gate. Bind each administrator action to a one-use import of its source, verify the resulting flash state and preserve the running configuration and backup. Require an explicit Apply to activate the recovered candidate.
 - [ ] Report draft, checked, saved candidate, applying, running, fallback and unknown-result states separately. After restart, reread identity/session, loaded source/revision/digest and renderer readiness before reporting success; HTTP 202, an upload receipt or a TCP reconnect is not proof of successful activation. Keep the pending first-frame/trial-confirmation work in 3.5 explicit.
 - [ ] Reconcile reconnect, HA restart, lost replies, expired receipts and concurrent local recovery by reading device state first. Never silently replay Apply, restore an older document or overwrite a newer one. Require explicit user conflict review; optional local/HA ownership transfer is deferred and must not block the single-credential workflow.
 - [ ] Keep a validated local document, previous-valid backup and compiled recovery path, plus the minimal local maintenance page. HA downtime must not prevent loading the cached UI; live readings/actions still depend on HA. Do not format SD, touch factory media or claim ordinary FatFs rename is power-loss atomic; carry the physical failure gates from 3.5 into release acceptance.

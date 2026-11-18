@@ -79,7 +79,7 @@ async def test_list_status_and_credential_redaction(hass, ws, entry, panel):
     assert all(method == "GET" for method, *_ in panel.calls)
 
 
-@pytest.mark.parametrize("operation", ["panels", "status", "import", "validate", "entities", "send", "apply"])
+@pytest.mark.parametrize("operation", ["panels", "status", "import", "validate", "entities", "send", "apply", "discard", "recover"])
 async def test_non_admin_is_rejected_before_any_device_io(connect_ws, hass_read_only_access_token, entry, panel, operation):
     ws = await connect_ws(access_token=hass_read_only_access_token)
     data = {"type": PREFIX + operation}
@@ -89,7 +89,7 @@ async def test_non_admin_is_rejected_before_any_device_io(connect_ws, hass_read_
         data["source"] = "active"
     if operation in ("validate", "send"):
         data["document"] = "broken"
-    if operation == "send":
+    if operation in ("send", "discard", "recover"):
         data["import_id"] = "a" * 32
     if operation == "apply":
         data["apply_id"] = "a" * 32
@@ -392,7 +392,7 @@ async def test_identity_mismatch_cannot_import_or_validate(ws, entry, panel):
 
 async def test_no_write_or_actuator_commands_registered(ws, entry, panel):
     before = len(panel.calls)
-    for operation in ("upload", "restore", "discard", "call_service", "press"):
+    for operation in ("upload", "restore", "scan", "call_service", "press"):
         result = await command(ws, entry, operation)
         assert result["error"]["code"] == "unknown_command"
     assert len(panel.calls) == before

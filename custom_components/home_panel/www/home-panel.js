@@ -35,6 +35,10 @@ const words = {
     activationConfirming: "Waiting for screen confirmation", activationConfirmed: "Running configuration confirmed",
     activationRolledBack: "Trial rolled back", activationUnknown: "Activation result unknown", activationUnchanged: "No activation observed",
     activationUnverified: "Activation not verified",
+    discardCandidate: "Remove candidate", recoverCandidate: "Stage backup as candidate",
+    confirmDiscardCandidate: "Remove the saved candidate from the panel?",
+    confirmRecoverCandidate: "Stage this backup as a new candidate?",
+    candidateDiscarded: "Candidate removed", candidateRecovered: "Backup staged as a candidate",
     filename: "Filename", input: "Local input", connection: "Connection", unsupported: "Firmware metadata incompatible",
   },
   ru: {
@@ -69,6 +73,10 @@ const words = {
     activationConfirming: "Ожидание подтверждения экрана", activationConfirmed: "Запуск конфигурации подтверждён",
     activationRolledBack: "Выполнен откат", activationUnknown: "Результат применения неизвестен", activationUnchanged: "Применение не обнаружено",
     activationUnverified: "Применение не подтверждено",
+    discardCandidate: "Удалить кандидата", recoverCandidate: "Создать кандидата из копии",
+    confirmDiscardCandidate: "Удалить сохранённого кандидата с панели?",
+    confirmRecoverCandidate: "Создать нового кандидата из этой резервной копии?",
+    candidateDiscarded: "Кандидат удалён", candidateRecovered: "Резервная копия сохранена как кандидат",
     filename: "Имя файла", input: "Локальный текст", connection: "Соединение", unsupported: "Несовместимые метаданные прошивки",
   },
 };
@@ -110,6 +118,7 @@ class HomePanelConfig extends HTMLElement {
     this._entry = "";
     this._status = null;
     this._activation = this._applyId = null;
+    this._maintenanceId = null;
     this._original = null;
     this._input = "";
     this._inputVersion = 0;
@@ -181,6 +190,10 @@ class HomePanelConfig extends HTMLElement {
           <div id="original" role="tabpanel" aria-labelledby="tab-original">
             <div class="document-bar"><span id="originalInfo" class="muted"></span><button id="edit-original"><ha-icon icon="mdi:pencil-outline">&#9998;</ha-icon><span data-text="edit"></span></button><button id="download" class="icon" data-title="download"><ha-icon icon="mdi:download">&#8595;</ha-icon></button></div>
             <p id="sourceChanged" class="warning" data-text="earlier" hidden></p>
+            <div id="maintenance-tools" class="document-bar" hidden>
+              <button id="discard-candidate" class="danger"><ha-icon icon="mdi:trash-can-outline">&#215;</ha-icon><span data-text="discardCandidate"></span></button>
+              <button id="recover-candidate"><ha-icon icon="mdi:backup-restore">&#8634;</ha-icon><span data-text="recoverCandidate"></span></button>
+            </div>
             <p id="originalReport" class="report" hidden></p>
             <pre id="document" tabindex="0"></pre>
             <details id="digest" hidden><summary data-text="digest"></summary><code id="sha"></code></details>
@@ -200,6 +213,8 @@ class HomePanelConfig extends HTMLElement {
     this.$("panel").onchange = event => this._select(event.target.value);
     this.$("refresh").onclick = () => this._statusRequest();
     this.$('apply-candidate').onclick = () => this._applyCandidate();
+    this.$('discard-candidate').onclick = () => this._maintainCandidate('discard');
+    this.$('recover-candidate').onclick = () => this._maintainCandidate('recover');
     this.$("tab-original").onclick = () => this._setTab("original");
     this.$("tab-editor").onclick = () => this._setTab("editor");
     this.$("tab-check").onclick = () => this._setTab("check");
@@ -296,6 +311,7 @@ class HomePanelConfig extends HTMLElement {
       this.$('draft-editor').invalidateStorage();
       this.$('draft-editor').invalidateImport();
       this._applyId = null;
+      this._maintenanceId = null;
       if (this._activation) this._activation = {...this._activation, state:'unknown'};
     }
     this._lastConnection = value?.connection;
@@ -314,6 +330,7 @@ class HomePanelConfig extends HTMLElement {
     this._entry = "";
     this._status = this._original = this._validation = null;
     this._activation = this._applyId = null;
+    this._maintenanceId = null;
     this._input = "";
     this._inputVersion++;
     this._checkedVersion = -1;
@@ -424,8 +441,31 @@ class HomePanelConfig extends HTMLElement {
     if (!confirm(`${this.t('confirmApply')}\n\nr${target.revision} · ${target.sha256.slice(0, 12)}`)) return;
     const apply_id = this._applyId;
     this._applyId = null;
+    this._maintenanceId = null;
     this._activation = {...target, state:'unknown'};
     await this._request('apply', {entry_id:this._entry, apply_id}, result => this._acceptStatus(result));
+  }
+
+  _canMaintain(operation) {
+    const source = operation === 'discard' ? 'candidate' : 'backup';
+    const file = this._status?.status.files[source];
+    return this._canJob && this._maintenanceId && this._original?.source === source &&
+      this._status?.[`candidate_${operation}_available`] && file?.sha256 === this._original.sha256 &&
+      file?.revision === this._original.revision;
+  }
+
+  async _maintainCandidate(operation) {
+    if (!this._canMaintain(operation)) return;
+    const label = operation === 'discard' ? 'confirmDiscardCandidate' : 'confirmRecoverCandidate';
+    const {revision, sha256} = this._original;
+    if (!confirm(`${this.t(label)}\n\nr${revision} · ${sha256.slice(0, 12)}`)) return;
+    const import_id = this._maintenanceId;
+    this._maintenanceId = this._applyId = null;
+    this.$('draft-editor').invalidateImport();
+    await this._request(operation, {entry_id:this._entry, import_id}, result => {
+      this._acceptStatus(result);
+      this._notice = operation === 'discard' ? 'candidateDiscarded' : 'candidateRecovered';
+    });
   }
 
   async _editOriginal() {
@@ -457,6 +497,7 @@ class HomePanelConfig extends HTMLElement {
   async _sendDraft(detail) {
     const draft = this.$('draft-editor');
     if (!this._canJob || !this._status?.candidate_send_available || detail.version !== draft.version || !detail.import_id) return;
+    this._maintenanceId = null;
     await this._request('send', {entry_id:this._entry, document:detail.document, import_id:detail.import_id}, result => {
       this._acceptStatus(result);
       draft.acceptSent(result.candidate, detail.version);
@@ -483,6 +524,7 @@ class HomePanelConfig extends HTMLElement {
     await this._request('draft_get', {entry_id:this._entry}, result => {
       const editable = this.$('draft-editor').acceptStored(result, true);
       if (result.record) {
+        this._maintenanceId = null;
         const origin = result.record.original;
         this._original = {...origin, capabilities:result.record.capabilities, bytes:new TextEncoder().encode(origin.document).length, validation:null};
         this.$('document').textContent = origin.document; this.$('sha').textContent = origin.sha256;
@@ -509,6 +551,7 @@ class HomePanelConfig extends HTMLElement {
     const {version, ...payload} = detail;
     await this._request('draft_history_get', {entry_id:this._entry, ...payload}, result => {
       if (!draft.restoreHistory(result, detail)) return;
+      this._maintenanceId = null;
       const {original:origin, capabilities} = result.record;
       this._original = {...origin, capabilities, bytes:new TextEncoder().encode(origin.document).length, validation:null};
       this.$('document').textContent = origin.document; this.$('sha').textContent = origin.sha256;
@@ -532,6 +575,8 @@ class HomePanelConfig extends HTMLElement {
     await this._request("import", {entry_id: this._entry, source}, result => {
       this._acceptStatus(result);
       this._original = result;
+      this._maintenanceId = (source === 'candidate' && result.candidate_discard_available ||
+        source === 'backup' && result.candidate_recover_available) ? result.import_id : null;
       this.$('draft-editor').bindImport(result);
       this.$("document").textContent = result.document;
       this.$("sha").textContent = result.sha256;
@@ -631,6 +676,14 @@ class HomePanelConfig extends HTMLElement {
     this.$('activation-status').className = 'report ' + (!activation || activation.state === 'ready' ? 'muted' :
       activation.state === 'confirmed' ? 'success' : 'warning');
     this.$('apply-candidate').disabled = !this._canApply;
+    const source = this._original?.source;
+    const showDiscard = source === 'candidate' && Boolean(this._status?.candidate_discard_available);
+    const showRecover = source === 'backup' && Boolean(this._status?.candidate_recover_available);
+    this.$('maintenance-tools').hidden = !(showDiscard || showRecover);
+    this.$('discard-candidate').hidden = !showDiscard;
+    this.$('recover-candidate').hidden = !showRecover;
+    this.$('discard-candidate').disabled = !this._canMaintain('discard');
+    this.$('recover-candidate').disabled = !this._canMaintain('recover');
     if (this._status) {
       const state = this._status.status;
       const caps = this._status.capabilities;

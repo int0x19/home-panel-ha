@@ -34,6 +34,38 @@ fs.mkdirSync(output, {recursive:true});
     assert.equal(await applies(), 0, 'Send is not Apply');
     assert.equal(await page.locator('#apply-candidate').isEnabled(), true);
     assert.match(await page.locator('#activation-status').textContent(), /Candidate ready/);
+    if (process.env.HA_APPLY_OUTCOME === 'maintenance') {
+      await page.locator('[data-import="candidate"]').click(); await idle();
+      const discard = page.locator('#discard-candidate');
+      const recover = page.locator('#recover-candidate');
+      for (const width of [320, 1280]) {
+        await page.setViewportSize({width, height:900});
+        assert.equal(await discard.evaluate(el => el.scrollWidth <= el.clientWidth + 1), true);
+      }
+      page.once('dialog', dialog => dialog.dismiss());
+      await discard.click(); await idle();
+      assert.equal(await page.evaluate(() => harness.calls.some(c => c.type.endsWith('/discard'))), false);
+      page.once('dialog', dialog => dialog.accept());
+      await discard.click(); await idle();
+      assert.match(await page.locator('#message').textContent(), /Candidate removed/);
+      assert.equal(await page.locator('#apply-candidate').isDisabled(), true);
+      await page.locator('[data-import="backup"]').click(); await idle();
+      await page.setViewportSize({width:320, height:900});
+      await page.evaluate(() => { harness.hass.locale.language = 'ru'; harness.theme(true); harness.update(); });
+      await recover.scrollIntoViewIfNeeded();
+      assert.equal(await page.locator('#originalInfo').evaluate(el => el.offsetHeight <= 32), true);
+      assert.equal(await recover.evaluate(el => el.scrollWidth <= el.clientWidth + 1), true);
+      await page.screenshot({path:path.join(output, 'recover-ru-dark-320.png'), fullPage:true});
+      page.once('dialog', dialog => dialog.accept());
+      await recover.click(); await idle();
+      assert.match(await page.locator('#message').textContent(), /Резервная копия сохранена как кандидат/);
+      assert.match(await page.locator('#activation-status').textContent(), /r33/);
+      assert.equal(await page.locator('#apply-candidate').isEnabled(), true);
+      assert.equal(await applies(), 0, 'Recovery only stages a candidate');
+      assert.equal(await page.evaluate(() => harness.element.$('draft-editor').document.rooms[0].name), 'Детская');
+      assert.deepEqual(errors, []);
+      return;
+    }
     const beforeCancel = await page.evaluate(() => harness.calls.length);
     page.once('dialog', dialog => dialog.dismiss());
     await page.locator('#apply-candidate').click(); await idle();

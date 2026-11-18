@@ -20,7 +20,7 @@ from .draft_validation import ModelCheckBusy, ModelCheckInput, async_check_model
 from .draft_changes import async_summarize_changes
 from .entity_catalog import ACTION_DOMAINS, CATALOG_DOMAINS, async_catalog
 from ._core import CandidateConflict, IdentityMismatch, OutcomeUnknown, PanelError, PanelHTTPError, ProtocolError, Source
-from ._core import MAX_DOCUMENT_BYTES, RuntimeSnapshot
+from ._core import MAX_DOCUMENT_BYTES, RuntimeSnapshot, candidate_maintenance_available
 from ._core import (
     BackendBusy, BackendClosed, InvalidImport, InvalidInput, ReadConflict, RefreshRequired,
 )
@@ -32,7 +32,8 @@ PREFIX = DOMAIN + "/config/"
 @callback
 def async_register(hass: HomeAssistant) -> None:
     for command in (ws_panels, ws_status, ws_import, ws_validate, ws_draft_get, ws_draft_save, ws_draft_delete,
-                    ws_model_check, ws_entities, ws_model_changes, ws_draft_history_get, ws_send, ws_apply):
+                    ws_model_check, ws_entities, ws_model_changes, ws_draft_history_get,
+                    ws_send, ws_apply, ws_discard, ws_recover):
         websocket_api.async_register_command(hass, command)
 
 
@@ -53,6 +54,8 @@ def _snapshot(entry: PanelConfigEntry, value: RuntimeSnapshot) -> dict[str, Any]
         "scope": "readings_preview_only" if "widget.sensor" in caps.features else "action_preview_only",
         "requires_status_refresh": entry.runtime_data.read_backend.requires_status_refresh,
         "candidate_send_available": candidate_available(value),
+        "candidate_discard_available": candidate_maintenance_available(value, Source.CANDIDATE),
+        "candidate_recover_available": candidate_maintenance_available(value, Source.BACKUP),
         "activation": entry.runtime_data.read_backend.activation(value),
         "status": {
             "storage": state.storage, "storage_ready": state.storage_ready,
@@ -135,6 +138,10 @@ async def _run(hass: HomeAssistant, connection: websocket_api.ActiveConnection,
             receipt = await backend.apply_candidate(msg["apply_id"])
             snapshot = receipt.snapshot
             result = {"apply_accepted":True}
+        elif operation in {"discard", "recover"}:
+            source = Source.CANDIDATE if operation == "discard" else Source.BACKUP
+            snapshot = await backend.maintain_candidate(msg["import_id"], source)
+            result = {"apply_id": backend.apply_id}
         else:
             document = msg["document"]
             # Check character count before UTF-8 allocation; the device byte ceiling
@@ -254,6 +261,22 @@ async def ws_send(hass: HomeAssistant, connection: websocket_api.ActiveConnectio
 @websocket_api.async_response
 async def ws_apply(hass: HomeAssistant, connection: websocket_api.ActiveConnection, msg: dict[str, Any]) -> None:
     await _run(hass, connection, msg, "apply")
+
+
+@websocket_api.websocket_command({"type": PREFIX + "discard", vol.Required("entry_id"): str,
+                                 vol.Required("import_id"): vol.All(str, vol.Length(min=32, max=32))})
+@websocket_api.require_admin
+@websocket_api.async_response
+async def ws_discard(hass: HomeAssistant, connection: websocket_api.ActiveConnection, msg: dict[str, Any]) -> None:
+    await _run(hass, connection, msg, "discard")
+
+
+@websocket_api.websocket_command({"type": PREFIX + "recover", vol.Required("entry_id"): str,
+                                 vol.Required("import_id"): vol.All(str, vol.Length(min=32, max=32))})
+@websocket_api.require_admin
+@websocket_api.async_response
+async def ws_recover(hass: HomeAssistant, connection: websocket_api.ActiveConnection, msg: dict[str, Any]) -> None:
+    await _run(hass, connection, msg, "recover")
 
 
 @websocket_api.websocket_command({"type": PREFIX + "model_check", vol.Required("entry_id"): str,

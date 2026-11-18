@@ -9,7 +9,7 @@ from homeassistant.core import HomeAssistant
 
 from ._core import (
     CandidateConflict, InvalidInput, MAX_DOCUMENT_BYTES, PanelReadBackend,
-    RuntimeSnapshot, Source, decode_document, encode_document, validate_document,
+    RuntimeSnapshot, Source, candidate_maintenance_available, decode_document, encode_document, validate_document,
 )
 
 
@@ -34,6 +34,7 @@ def _canonical(data: bytes) -> bytes:
 class ImportedBase:
     token: str
     snapshot: RuntimeSnapshot
+    source: Source
     checked_sha256: str | None = None
 
 
@@ -83,7 +84,7 @@ class PanelConfigBackend(PanelReadBackend):
 
     async def import_document(self, source):
         checked = await super().import_document(source)
-        self._imported = (ImportedBase(secrets.token_urlsafe(24), checked.snapshot)
+        self._imported = (ImportedBase(secrets.token_urlsafe(24), checked.snapshot, checked.document.source)
                           if candidate_available(checked.snapshot) else None)
         if Source(source) == Source.CANDIDATE and apply_available(checked.snapshot):
             self._prepare_apply(checked.snapshot)
@@ -155,6 +156,23 @@ class PanelConfigBackend(PanelReadBackend):
                 raise InvalidInput("Saved candidate failed negotiated model checks") from None
             self._activation = replace(self._activation, state="restarting", observed=receipt.snapshot)
             return receipt
+
+    async def maintain_candidate(self, import_id: str, source: Source) -> RuntimeSnapshot:
+        async with self._operation(job=True):
+            base = self._base(import_id)
+            if base.source is not source or not candidate_maintenance_available(base.snapshot, source):
+                raise CandidateConflict("Import and review the matching saved configuration")
+            self._imported = None
+            self._activation = None
+            self._job_attempted = True
+            if source is Source.CANDIDATE:
+                return await self._client.discard_candidate(expected=base.snapshot)
+            try:
+                snapshot = await self._client.recover_candidate(expected=base.snapshot)
+            except ValueError:
+                raise InvalidInput("Recovered candidate exceeds the supported model or limits") from None
+            self._prepare_apply(snapshot)
+            return snapshot
 
     async def inspect(self) -> RuntimeSnapshot:
         intent = self._activation

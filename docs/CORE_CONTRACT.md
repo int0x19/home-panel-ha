@@ -69,7 +69,7 @@ stay at unpublished 0.1.2; published Marketplace 0.1.1 remains unchanged.
 
 ## Core Apply Boundary
 
-The current functional lock advances to core
+The Apply checkpoint advanced the functional lock to core
 `ac24832776852116018ad47cdf120685c9d37567`, still unpublished 0.1.2. It adds
 `apply_candidate(expected=...)` and `inspect_activation(expected=...)` using
 existing flash Apply/export and boot metadata. Separate transport opt-ins keep

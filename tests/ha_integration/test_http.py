@@ -14,19 +14,19 @@ from custom_components.home_panel._core import AiohttpTransport
 from support import DEVICE_ID, TOKEN
 
 
-async def test_pairing_is_read_only_and_paired_client_only_opts_into_upload_and_apply(hass, monkeypatch):
+async def test_pairing_is_read_only_and_paired_client_opts_into_configuration_jobs(hass, monkeypatch):
     monkeypatch.setattr(coordinator, "AiohttpTransport", AiohttpTransport)
     data = {CONF_URL: "http://127.0.0.1:1", CONF_ACCESS_KEY: TOKEN}
     client = coordinator.create_client(hass, data)
-    # Unpaired discovery stays read-only; only a paired client adds Upload/Apply.
-    for suffix in ("upload", "apply", "discard", "restore", "scan"):
+    for suffix in ("upload", "apply", "discard", "recover", "restore", "scan"):
         with pytest.raises(ValueError, match="Unsupported panel request"):
             await client._transport.request("POST", "/panel/runtime/api/" + suffix,
                                             headers={}, body=b"{}", max_bytes=16384)
     client = coordinator.create_client(hass, data, DEVICE_ID)
     assert client._transport._allow_candidate_upload
     assert client._transport._allow_candidate_apply
-    for suffix in ("discard", "restore", "scan"):
+    assert client._transport._allow_candidate_maintenance
+    for suffix in ("restore", "scan"):
         with pytest.raises(ValueError, match="Unsupported panel request"):
             await client._transport.request("POST", "/panel/runtime/api/" + suffix,
                                             headers={}, body=b"{}", max_bytes=16384)

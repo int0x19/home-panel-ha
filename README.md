@@ -107,8 +107,8 @@ retain administrator authorization, bounded validation and exact-original guards
 
 Apply acceptance: **254 HA tests and 79 installed-core tests pass**. The
 [Apply workflow](docs/HA_CANDIDATE_APPLY.md) is now implemented in source and
-local archives, not yet published or installed in the user's HA. Next is guarded
-Discard/recovery, followed by separately authorized physical acceptance.
+local archives. The candidate maintenance section below covers the next source
+checkpoint.
 
 Candidate Send acceptance: **232 tests pass** on HA 2026.11, including actual
 WS/HTTP/Chromium and self-contained manual/Marketplace archives; 66 pinned-core
@@ -132,7 +132,9 @@ bytes on ESP32 and stores them as a flash candidate, without activation/restart.
 HA checkpoint Save, device Check, Send and Apply are independent operations.
 The [Apply workflow](docs/HA_CANDIDATE_APPLY.md) requires explicit confirmation
 and reports a running configuration only after verified trial startup/readback.
-Next: guarded Discard/recovery and separately authorized physical acceptance.
+Import **Candidate** to remove it or **Backup** to stage it at a new revision.
+Candidate maintenance is documented in the roadmap. The next step is
+installed-HA and physical-panel acceptance.
 
 The source subtree history comes from `esp32panel` commit `b72b70f` (2026-11-07).
 The original firmware history is unchanged. Shared library history continues in
