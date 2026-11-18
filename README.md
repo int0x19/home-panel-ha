@@ -13,12 +13,12 @@ submodules or handwritten copies of those implementations here.
 
 ## Installation
 
-Current source development is **0.1.2** with a capability-gated
+Version **0.1.2** includes a capability-gated
 [numeric-sensor/group editor](docs/HA_SENSOR_DRAFT.md) and explicit
-[candidate Send](docs/HA_CANDIDATE_SEND.md) plus separate
-[Apply and activation inspection](docs/HA_CANDIDATE_APPLY.md). It is not yet a
-published Marketplace release and does not enable managed device deployment.
-The build examples below use the matching development core wheel.
+[candidate Send](docs/HA_CANDIDATE_SEND.md), Discard and backup recovery, plus
+separate [Apply and activation inspection](docs/HA_CANDIDATE_APPLY.md).
+These operations require compatible firmware and an HA administrator. See
+the [0.1.2 release notes](docs/releases/0.1.2.md) for verification and limits.
 
 Version **0.1.1** fixes pairing/import with internal-flash firmware
 (`flash-confirmed`, `flash-nvs`). No SD card or firmware update is required for
@@ -26,7 +26,8 @@ this compatibility fix. Upgrade/restart HA, then retry the panel setup.
 
 Requires **Home Assistant 2026.11.0 or newer**. Marketplace installs the ZIP
 attached to a [published release](https://github.com/int0x19/home-panel-ha/releases),
-not a source branch. Select **0.1.1**, not `main` or a commit hash.
+not a source branch. Select the published version **0.1.2**, not `main`
+or a commit hash.
 See the [publication and installation checklist](docs/MARKETPLACE.md).
 
 ### Marketplace

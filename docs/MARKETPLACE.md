@@ -67,7 +67,7 @@ This preparation does not create GitHub repositories or publish any files.
 Local packaging, using the pinned core wheel:
 
 ```sh
-make release marketplace CORE_WHEEL=/path/to/home_panel_core-0.1.0-py3-none-any.whl
+make release marketplace CORE_WHEEL=/path/to/home_panel_core-0.1.2-py3-none-any.whl
 ```
 
 | Artifact | Destination when unpacking |
@@ -82,7 +82,7 @@ receipt `core-release.json`. Tests verify deterministic bytes and importing the
 bundled core with standalone-core imports explicitly blocked.
 
 After pushing and reviewing CI, create/push a tag matching the manifest version
-exactly, initially `0.1.0` (no `v` prefix). The workflow attaches both ZIPs and
+exactly, for example `0.1.2` (no `v` prefix). The workflow attaches both ZIPs and
 `SHA256SUMS` to a **draft** GitHub release. Review notes, files and licensing,
 then publish it. A tag or Actions artifact alone is not an installable release.
 For a pre-release, mark it accordingly; users must enable pre-release versions.
@@ -102,8 +102,9 @@ configuration/debug HTTP key through the config flow, not an HA token. The key
 remains in HA backend configuration; never include it in screenshots or exports.
 
 Before setup, the panel must expose the identity/capability API documented in
-`CORE_CONTRACT.md`. HA checkpoint Save is not ESP32 Save/Apply. This release's
-read/check client does not enable managed writes or household service calls.
+`CORE_CONTRACT.md`. HA checkpoint Save is not ESP32 Send or Apply. Version
+0.1.2 offers explicit candidate operations only on a compatible paired panel;
+it does not enable automatic deployment or household service calls.
 Installing this integration neither flashes ESP32 nor migrates an existing
 YAML-built panel automatically. Runtime support is capability-gated, not implied
 by the library being able to parse a widget's JSON.
