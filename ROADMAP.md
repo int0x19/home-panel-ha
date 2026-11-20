@@ -15,9 +15,11 @@ panel: exact Active 75, former Active 56 as Backup, and an empty candidate
 slot. The edited title and live numeric readings rendered on the ESP32.
 The same workflow applied a numeric-sensor binding edit as Active 77 after a
 brownout rollback on the earlier attempt. The ESP32 subscribed to the new
-source and received its value without OTA. Next verify migrating one
-working room's readings; broader widget migration and action dispatch are
-not covered.
+source and received its value without OTA. The Kitchen group then passed
+as Active 78 with exact candidate readback and both live readings visible
+on the panel. The generated interface remains available. The firmware
+roadmap next reuses live header data and System navigation in these rooms;
+broader widget migration and action dispatch are not covered.
 
 ## Candidate Maintenance (2026-11-18)
 
