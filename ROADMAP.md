@@ -10,7 +10,11 @@ Installed HA 0.1.2 and the physical panel passed Send, Discard and backup
 staging. Exact exports confirmed Active 56 and Backup 55 stayed unchanged.
 Candidate 73 was discarded, Backup 55 was staged as Candidate 74 with
 only the revision replaced, then the slot was emptied with high-water 74.
-Next verify separate Apply on installed HA; successful Apply rotates Backup.
+Separate Apply of the checked display-only Candidate 75 passed on the same
+panel: exact Active 75, former Active 56 as Backup, and an empty candidate
+slot. The edited title and live numeric readings rendered on the ESP32.
+Next verify changing one numeric-sensor binding in this same installed HA
+workflow. Broader widget migration and action dispatch are not covered.
 
 ## Candidate Maintenance (2026-11-18)
 
