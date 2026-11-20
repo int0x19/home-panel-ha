@@ -13,6 +13,7 @@ module.exports = async function testSensors(page, output) {
     draft.begin(parent._original, parent._status.capabilities, 40);
   });
   assert.equal(await page.locator('#draft-add-sensor').isDisabled(), true, 'Action-only firmware must stay gated');
+  assert.equal(await page.locator('#draft-add-status').isHidden(), true, 'Action-only firmware cannot edit binary sensors');
   await page.evaluate(() => {
     const parent = harness.element, caps = parent._status.capabilities;
     caps.features.push('widget.sensor', 'widget.status', 'sensor-groups.v1'); caps.widget_types.push('sensor', 'status');
@@ -64,13 +65,34 @@ module.exports = async function testSensors(page, output) {
   draft = await document();
   assert.equal(draft.rooms[0].widgets[0].id, first.id, 'Edits preserve placement identity');
   assert.deepEqual(draft.rooms[0].groups[group], {}, 'Empty common name retains unnamed grouping');
+  fs.writeFileSync(path.join(output, 'sensor-draft.json'), JSON.stringify(draft));
+  await page.locator('#draft-add-status').click();
+  assert.equal(await page.locator('#draft-sensor-unit').isHidden(), true);
+  assert.equal(await page.locator('#draft-sensor-group').isHidden(), true);
+  await page.locator('#draft-choose-sensor').click(); await idle();
+  assert.equal(await page.locator('.entity-result').evaluateAll(items =>
+    items.every(item => item.dataset.entity.startsWith('binary_sensor.'))), true);
+  await page.locator('[data-entity="binary_sensor.plug_problem"]').click();
+  assert.equal(await page.locator('#draft-sensor-class').inputValue(), 'problem');
+  await page.locator('#draft-update-sensor').click();
+  draft = await document();
+  const status = draft.rooms[0].widgets.at(-1);
+  assert.equal(status.type, 'status');
+  assert.deepEqual(status.settings, {name:'Plug fault', entity:'binary_sensor.plug_problem', device_class:'problem'});
+  assert.ok(draft.requires.includes('widget.status'));
+  assert.match(await page.locator('#draft-fit').textContent(), /^206 \/ 390 px$/);
+  await page.locator(`[data-widget-id="${status.id}"] .draft-widget-main`).click();
+  await page.locator('#draft-sensor-name').fill('Outlet fault');
+  await page.locator('#draft-update-sensor').click();
+  draft = await document();
+  assert.equal(draft.rooms[0].widgets.at(-1).id, status.id, 'Status title edits keep the placement ID');
   await page.locator('#draft-model-check').click(); await idle();
   assert.match(await page.locator('#draft-model-status').textContent(), /Valid model/);
   assert.equal(await page.evaluate(() => harness.element.$('draft-editor')._modelValidation.deployment_ready), false);
   await page.locator('#draft-save-ha').click(); await idle();
   await page.locator('#draft-load-ha').click(); await idle();
   assert.deepEqual(await document(), draft, 'Sensor settings survive HA checkpoint restore');
-  fs.writeFileSync(path.join(output, 'sensor-draft.json'), JSON.stringify(draft));
+  fs.writeFileSync(path.join(output, 'status-draft.json'), JSON.stringify(draft));
   for (const language of ['en', 'ru']) {
     await page.evaluate(language => { harness.hass.locale.language = language; harness.update(); }, language);
     for (const dark of [false, true]) {

@@ -48,6 +48,7 @@ async def test_admin_frontend_in_chromium(hass, hass_client, hass_access_token, 
         "unit_of_measurement":"\u00b0C", "device_class":"temperature"})
     hass.states.async_set("sensor.bedroom_humidity", "unavailable", {"friendly_name":"Bedroom humidity",
         "unit_of_measurement":"%", "device_class":"humidity"})
+    hass.states.async_set("binary_sensor.plug_problem", "on", {"friendly_name":"Plug fault", "device_class":"problem"})
     unloaded = MockConfigEntry(domain=DOMAIN, title='<img src=x onerror="window.injected=1">',
                                unique_id="unloaded-preview", data={})
     unloaded.add_to_hass(hass)

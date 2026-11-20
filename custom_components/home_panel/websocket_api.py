@@ -18,7 +18,7 @@ from .config_backend import candidate_available
 from .draft_storage import MAX_GENERATION, DraftError, DraftInvalid, prepare_record, repository
 from .draft_validation import ModelCheckBusy, ModelCheckInput, async_check_model
 from .draft_changes import async_summarize_changes
-from .entity_catalog import ACTION_DOMAINS, CATALOG_DOMAINS, async_catalog
+from .entity_catalog import CATALOG_DOMAINS, async_catalog
 from ._core import CandidateConflict, IdentityMismatch, OutcomeUnknown, PanelError, PanelHTTPError, ProtocolError, Source
 from ._core import MAX_DOCUMENT_BYTES, RuntimeSnapshot, candidate_maintenance_available
 from ._core import (
@@ -208,7 +208,7 @@ async def ws_status(hass: HomeAssistant, connection: websocket_api.ActiveConnect
 @websocket_api.websocket_command({
     "type": PREFIX + "entities", vol.Required("entry_id"): str,
     vol.Optional("scope", default="action"): vol.In(CATALOG_DOMAINS),
-    vol.Optional("domain", default=""): vol.In(("", *ACTION_DOMAINS, "sensor")),
+    vol.Optional("domain", default=""): vol.In(("", *(d for domains in CATALOG_DOMAINS.values() for d in domains))),
     vol.Optional("area_id", default=""): vol.Any(None, vol.All(str, vol.Length(max=128))),
     vol.Optional("query", default=""): vol.All(str, vol.Length(max=128)),
     vol.Optional("include_inactive", default=False): bool,

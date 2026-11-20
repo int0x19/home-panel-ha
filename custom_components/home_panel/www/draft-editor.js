@@ -1,10 +1,10 @@
-import {DraftError, editDraft, identity, nextRevision, normalizedDraft, actionCapacity, editableAction, editableSensor, editableRoom, roomPlan, assertDraftBudget} from './runtime-draft.mjs';
+import {DraftError, editDraft, identity, nextRevision, normalizedDraft, actionCapacity, editableAction, editableReading, editableRoom, roomPlan, assertDraftBudget, supportsReading} from './runtime-draft.mjs';
 
 const labels = {
   en: {empty:'No local draft', room:'Room', addRoom:'Add room', up:'Move up', down:'Move down', delete:'Delete',
     name:'Name', kind:'Page type', normal:'Room', actions:'Actions', update:'Update draft', cancel:'Cancel',
     widgets:'Widgets', addAction:'Add action', addSensor:'Add sensor', entity:'Entity', destination:'Page', icon:'Icon', interaction:'Activation',
-    unit:'Unit', deviceClass:'Sensor class', group:'Sensor group', groupName:'Group title', ungrouped:'Standalone', newGroup:'New group',
+    addStatus:'Add binary sensor', unit:'Unit', deviceClass:'Sensor class', group:'Sensor group', groupName:'Group title', ungrouped:'Standalone', newGroup:'New group',
     sensor_fields:'Unsupported sensor settings', opaque_sensor:'Sensor is read-only', sensor_page:'Sensors need a Room page',
     binding_limit:'Entity binding limit reached', groupError:'Invalid sensor group', pixels:'px',
     tap:'Tap', hold:'Hold', confirm:'Confirmation', enabled:'Enabled', stop:'Stop control', check:'On ESP32', checkHA:'In HA', hostModel:'HA model',
@@ -39,7 +39,7 @@ const labels = {
   ru: {empty:'Нет локального черновика', room:'Комната', addRoom:'Добавить комнату', up:'Переместить выше', down:'Переместить ниже', delete:'Удалить',
     name:'Название', kind:'Тип страницы', normal:'Комната', actions:'Действия', update:'Обновить черновик', cancel:'Отмена',
     widgets:'Виджеты', addAction:'Добавить действие', addSensor:'Добавить сенсор', entity:'Сущность', destination:'Страница', icon:'Иконка', interaction:'Активация',
-    unit:'Единица измерения', deviceClass:'Класс сенсора', group:'Группа сенсоров', groupName:'Название группы', ungrouped:'Отдельная карточка', newGroup:'Новая группа',
+    addStatus:'Добавить бинарный датчик', unit:'Единица измерения', deviceClass:'Класс сенсора', group:'Группа сенсоров', groupName:'Название группы', ungrouped:'Отдельная карточка', newGroup:'Новая группа',
     sensor_fields:'Неподдерживаемые настройки сенсора', opaque_sensor:'Сенсор доступен только для чтения', sensor_page:'Сенсорам нужна страница комнаты',
     binding_limit:'Достигнут лимит источников данных', groupError:'Некорректная группа сенсоров', pixels:'пкс',
     tap:'Нажатие', hold:'Удержание', confirm:'Подтверждение', enabled:'Включено', stop:'Кнопка остановки', check:'На ESP32', checkHA:'В HA', hostModel:'Модель HA',
@@ -74,6 +74,7 @@ const labels = {
 };
 const icons = {'refresh-cw':'refresh', palette:'palette', power:'power', bell:'bell', moon:'weather-night', sun:'white-balance-sunny',
   house:'home', save:'content-save', fan:'fan', sprout:'sprout'};
+const catalogDomains = {action:['script', 'scene', 'button', 'input_button'], sensor:['sensor'], status:['binary_sensor']};
 
 class HomePanelDraft extends HTMLElement {
   constructor() {
@@ -135,7 +136,7 @@ class HomePanelDraft extends HTMLElement {
           <label><span data-label="kind"></span><select id="draft-room-kind"><option value="room" data-label="normal"></option><option value="actions" data-label="actions"></option></select></label>
           <div class="draft-toolbar"><button id="draft-update-room" type="submit" data-label="update"></button><button id="draft-cancel-room" type="button" data-label="cancel"></button><span id="draft-room-id" class="muted"></span></div>
         </form>
-        <div class="draft-toolbar"><h2 data-label="widgets"></h2><span id="draft-fit" class="muted"></span><button id="draft-add-action" class="icon" data-tool="addAction"><ha-icon icon="mdi:gesture-tap-button">+</ha-icon></button><button id="draft-add-sensor" class="icon" data-tool="addSensor"><ha-icon icon="mdi:thermometer-plus">+</ha-icon></button></div>
+        <div class="draft-toolbar"><h2 data-label="widgets"></h2><span id="draft-fit" class="muted"></span><button id="draft-add-action" class="icon" data-tool="addAction"><ha-icon icon="mdi:gesture-tap-button">+</ha-icon></button><button id="draft-add-sensor" class="icon" data-tool="addSensor"><ha-icon icon="mdi:thermometer-plus">+</ha-icon></button><button id="draft-add-status" class="icon" data-tool="addStatus"><ha-icon icon="mdi:circle-half-full">+</ha-icon></button></div>
         <div id="draft-widgets"></div>
         <form id="draft-action-form" class="draft-fields" hidden>
           <label><span data-label="name"></span><input id="draft-action-name" required maxlength="256" autocomplete="off"></label>
@@ -173,7 +174,7 @@ class HomePanelDraft extends HTMLElement {
         <div class="dialog-actions"><button id="entity-cancel" type="button" data-label="cancel"></button></div>
       </dialog>`;
     this.$('draft-choose-entity').onclick = () => this._openEntities('action');
-    this.$('draft-choose-sensor').onclick = () => this._openEntities('sensor');
+    this.$('draft-choose-sensor').onclick = () => this._openEntities(this._editingKind);
     this.$('entity-search-form').onsubmit = event => { event.preventDefault(); this._searchEntities(); };
     for (const id of ['entity-domain', 'entity-area', 'entity-inactive']) this.$(id).onchange = () => this._searchEntities();
     this.$('entity-previous').onclick = () => this._searchEntities(Math.max(0, this._catalog.offset - 25));
@@ -193,21 +194,23 @@ class HomePanelDraft extends HTMLElement {
     this.$('draft-cancel-room').onclick = () => { this._fields = false; this._render(); };
     this.$('draft-add-action').onclick = () => this._openAction(null);
     this.$('draft-add-sensor').onclick = () => this._openSensor(null);
+    this.$('draft-add-status').onclick = () => this._openSensor(null, 'status');
     this.$('draft-cancel-sensor').onclick = () => { if (this._canLeave()) { this._editing = null; this._fields = false; this._render(); } };
     this.$('draft-sensor-form').onsubmit = event => {
       event.preventDefault();
       const settings = {name:this.$('draft-sensor-name').value.trim(), entity:this.$('draft-sensor-entity').value.trim()};
       const unit = this.$('draft-sensor-unit').value.trim(), deviceClass = this.$('draft-sensor-class').value.trim();
-      if (unit) settings.unit = unit;
+      const kind = this._editingKind;
+      if (kind === 'sensor' && unit) settings.unit = unit;
       if (deviceClass) settings.device_class = deviceClass;
-      const selected = this.$('draft-sensor-group').value;
+      const selected = kind === 'sensor' ? this.$('draft-sensor-group').value : '';
       if (selected) settings.group = selected === '@new' ? this._newGroupId : selected;
-      this._edit({type:'put_sensor', room:this._room, previous:this._editing || null, id:identity('sensor'),
+      this._edit({type:'put_' + kind, room:this._room, previous:this._editing || null, id:identity(kind),
         target:this.$('draft-sensor-target').value, settings,
         ...(selected ? {group_name:this.$('draft-group-name').value.trim()} : {})});
     };
     this.$('draft-sensor-entity').onchange = () => this._sensorDefaults(this._context.states?.[this.$('draft-sensor-entity').value]?.attributes);
-    this.$('draft-sensor-target').onchange = () => this._sensorGroups(this.$('draft-sensor-group').value);
+    this.$('draft-sensor-target').onchange = () => { if (this._editingKind === 'sensor') this._sensorGroups(this.$('draft-sensor-group').value); };
     this.$('draft-sensor-group').onchange = () => this._sensorGroupField();
     this.$('draft-cancel-action').onclick = () => { if (this._canLeave()) { this._editing = null; this._fields = false; this._render(); } };
     this.$('draft-action-form').onsubmit = event => {
@@ -433,7 +436,7 @@ class HomePanelDraft extends HTMLElement {
       this._version++; this._unsaved = true; this._validationFresh = false; this._error = ''; this._fields = false; this._editing = null;
       if (selectLast) this._room = this._draft.rooms.at(-1).id;
       if (!this._draft.rooms.some(r => r.id === this._room)) this._room = this._draft.rooms[0].id;
-      if (['put_action', 'put_sensor'].includes(operation.type)) this._room = operation.target;
+      if (['put_action', 'put_sensor', 'put_status'].includes(operation.type)) this._room = operation.target;
       this._render(); this._notify();
     } catch (error) { this._error = error.code || 'failed'; this._controls(); }
   }
@@ -452,23 +455,25 @@ class HomePanelDraft extends HTMLElement {
     this.$('draft-widgets').replaceChildren(...room.widgets.map((widget, index) => {
       const row = document.createElement('div'); row.className = 'draft-widget'; row.dataset.widgetId = widget.id;
       const edit = document.createElement('button'), name = document.createElement('strong'), entity = document.createElement('small'), glyph = document.createElement('ha-icon');
-      const sensor = editableSensor(widget, this._caps) && editableRoom(room, this._caps), supported = sensor || editableAction(widget, this._caps);
+      const reading = editableReading(widget, this._caps) && editableRoom(room, this._caps), supported = reading || editableAction(widget, this._caps);
+      const type = reading ? widget.type : 'action';
       edit.type = 'button'; edit.className = 'draft-widget-main'; edit.disabled = !supported;
-      glyph.setAttribute('icon', 'mdi:' + (sensor ? widget.settings.device_class === 'humidity' ? 'water-percent' : 'thermometer' : supported ? icons[widget.settings.icon] || 'gesture-tap-button' : 'lock-outline'));
+      glyph.setAttribute('icon', 'mdi:' + (type === 'status' ? 'circle-half-full' : reading ?
+        widget.settings.device_class === 'humidity' ? 'water-percent' : 'thermometer' : supported ? icons[widget.settings.icon] || 'gesture-tap-button' : 'lock-outline'));
       glyph.textContent = supported ? '\u25c7' : '\u2014';
-      name.textContent = widget.settings.name; entity.textContent = [widget.settings.entity || widget.type, sensor && widget.settings.group &&
+      name.textContent = widget.settings.name; entity.textContent = [widget.settings.entity || widget.type, reading && widget.settings.group &&
         (Object.hasOwn(room.groups, widget.settings.group) && room.groups[widget.settings.group].name || widget.settings.group)].filter(Boolean).join(' \u00b7 ');
-      const text = document.createElement('span'); text.append(name, entity); edit.append(glyph, text); edit.onclick = () => sensor ? this._openSensor(widget.id) : this._openAction(widget.id);
+      const text = document.createElement('span'); text.append(name, entity); edit.append(glyph, text); edit.onclick = () => reading ? this._openSensor(widget.id, type) : this._openAction(widget.id);
       const tools = document.createElement('div'); tools.className = 'draft-widget-tools';
       for (const [offset, glyph, label] of [[-1, 'arrow-up', 'up'], [1, 'arrow-down', 'down']]) {
-        const button = this._button(glyph, label, () => this._edit({type:sensor ? 'move_sensor' : 'move_action', room:room.id, id:widget.id, offset}));
+        const button = this._button(glyph, label, () => this._edit({type:'move_' + type, room:room.id, id:widget.id, offset}));
         button.dataset.blocked = String(!supported || index + offset < 0 || index + offset >= room.widgets.length); tools.append(button);
       }
-      const remove = this._button('trash-can-outline', 'delete', () => { if (confirm(this.t(sensor ? 'deleteSensor' : 'deleteAction'))) this._edit({type:sensor ? 'delete_sensor' : 'delete_action', room:room.id, id:widget.id}); });
+      const remove = this._button('trash-can-outline', 'delete', () => { if (confirm(this.t(reading ? 'deleteSensor' : 'deleteAction'))) this._edit({type:'delete_' + type, room:room.id, id:widget.id}); });
       remove.dataset.blocked = String(!supported); tools.append(remove); row.append(edit, tools); return row;
     }));
     this.$('draft-action-form').hidden = this._editing === null || this._editingKind !== 'action';
-    this.$('draft-sensor-form').hidden = this._editing === null || this._editingKind !== 'sensor';
+    this.$('draft-sensor-form').hidden = this._editing === null || this._editingKind === 'action';
     this._controls();
   }
   _openAction(id) {
@@ -495,17 +500,23 @@ class HomePanelDraft extends HTMLElement {
   _stopField() {
     this.$('draft-stop-field').hidden = !this._caps?.features.includes('script-controls.v1') || !this.$('draft-entity').value.startsWith('script.');
   }
-  _openSensor(id) {
+  _openSensor(id, kind = 'sensor') {
     if (!this._canLeave() || !this._draft || this._capsChanged()) return;
     const room = this._draft.rooms.find(r => r.id === this._room);
-    if (!editableRoom(room, this._caps) || room.kind === 'actions' || !this._caps.features.includes('widget.sensor') || !this._caps.widget_types.includes('sensor')) return;
+    if (!editableRoom(room, this._caps) || room.kind === 'actions' || !supportsReading(kind, this._caps)) return;
     const settings = id ? room.widgets.find(w => w.id === id).settings : {name:'', entity:''};
-    this._editing = id || ''; this._editingKind = 'sensor'; this._fields = false; this._newGroupId = identity('group');
+    const binary = kind === 'status', domain = catalogDomains[kind][0];
+    this._editing = id || ''; this._editingKind = kind; this._fields = false; this._newGroupId = identity('group');
+    this.$('draft-sensor-entity').pattern = domain + '\\.[a-z0-9_]+';
+    this.$('draft-sensor-unit').closest('label').hidden = binary;
+    this.$('draft-sensor-group').closest('label').hidden = binary;
+    this.$('draft-sensor-classes').replaceChildren(...(binary ? ['problem', 'motion', 'door', 'window'] : ['temperature', 'humidity']).map(value => new Option(value)));
     for (const [field, value] of [['name', settings.name], ['entity', settings.entity], ['unit', settings.unit], ['class', settings.device_class]]) this.$('draft-sensor-' + field).value = value || '';
     this.$('draft-sensor-target').replaceChildren(...this._draft.rooms.filter(r => r.kind !== 'actions' && editableRoom(r, this._caps)).map(r => new Option(r.name, r.id)));
     this.$('draft-sensor-target').value = room.id;
-    this._sensorGroups(settings.group || '');
-    this.$('draft-sensor-entities').replaceChildren(...Object.entries(this._context.states || {}).filter(([id]) => /^sensor\./.test(id)).slice(0, 50).map(([id, state]) => new Option(state.attributes.friendly_name || id, id)));
+    if (binary) this.$('draft-group-name-field').hidden = true;
+    else this._sensorGroups(settings.group || '');
+    this.$('draft-sensor-entities').replaceChildren(...Object.entries(this._context.states || {}).filter(([id]) => id.startsWith(domain + '.')).slice(0, 50).map(([id, state]) => new Option(state.attributes.friendly_name || id, id)));
     this.$('draft-action-form').hidden = true; this.$('draft-sensor-form').hidden = false;
     this._controls(); this.$('draft-sensor-name').focus();
   }
@@ -530,6 +541,7 @@ class HomePanelDraft extends HTMLElement {
   _sensorDefaults(attributes) {
     if (!attributes) return;
     for (const [field, value] of [['name', attributes.friendly_name], ['unit', attributes.unit_of_measurement], ['class', attributes.device_class]]) {
+      if (field === 'unit' && this._editingKind === 'status') continue;
       if (!this.$('draft-sensor-' + field).value && typeof value === 'string' &&
           !/[\x00-\x1f\x7f-\x9f]/.test(value) && new TextEncoder().encode(value).length <= this._caps.limits.string_bytes) this.$('draft-sensor-' + field).value = value;
     }
@@ -539,7 +551,7 @@ class HomePanelDraft extends HTMLElement {
     this._entityKind = kind;
     this._catalog = null; this._catalogError = false;
     this.$('entity-query').value = '';
-    this.$('entity-domain').replaceChildren(new Option(this.t('all'), ''), ...(kind === 'sensor' ? ['sensor'] : ['script', 'scene', 'button', 'input_button']).map(d => new Option(d, d)));
+    this.$('entity-domain').replaceChildren(new Option(this.t('all'), ''), ...catalogDomains[kind].map(d => new Option(d, d)));
     this.$('entity-area').replaceChildren(new Option(this.t('all'), ''), new Option(this.t('unassigned'), '@none'));
     this.$('entity-inactive').checked = false;
     this.$('entity-results').replaceChildren(); this.$('entity-areas-warning').hidden = true;
@@ -549,7 +561,7 @@ class HomePanelDraft extends HTMLElement {
     this._catalogRequest++; this._catalogPending = false;
     if (this.$('entity-picker').open) {
       this.$('entity-picker').close();
-      if (this.isConnected) this.$(this._entityKind === 'sensor' ? 'draft-choose-sensor' : 'draft-choose-entity').focus();
+      if (this.isConnected) this.$(this._entityKind === 'action' ? 'draft-choose-entity' : 'draft-choose-sensor').focus();
     }
   }
   _searchEntities(offset = 0) {
@@ -575,14 +587,14 @@ class HomePanelDraft extends HTMLElement {
       const button = document.createElement('button'), text = document.createElement('span'), name = document.createElement('strong'),
         description = document.createElement('small'), icon = document.createElement('ha-icon');
       button.type = 'button'; button.className = 'entity-result'; button.dataset.entity = item.entity_id;
-      icon.setAttribute('icon', 'mdi:' + ({script:'script-text-outline', scene:'palette-outline', button:'gesture-tap-button', input_button:'gesture-tap-button', sensor:'thermometer'}[item.domain]));
+      icon.setAttribute('icon', 'mdi:' + ({script:'script-text-outline', scene:'palette-outline', button:'gesture-tap-button', input_button:'gesture-tap-button', sensor:'thermometer', binary_sensor:'circle-half-full'}[item.domain]));
       icon.textContent = '\u25c7'; name.textContent = item.name;
       description.textContent = [item.entity_id, item.area_name, item.disabled && this.t('disabled'), item.hidden && this.t('hidden'),
         item.availability !== 'available' && this.t({missing:'missingState', unavailable:'unavailable', unknown:'unknown'}[item.availability])].filter(Boolean).join(' \u00b7 ');
       text.append(name, description); button.append(icon, text);
       button.onclick = () => {
         if (this._context.busy || this._editing === null || this._capsChanged()) return;
-        if (this._entityKind === 'sensor') {
+        if (this._entityKind !== 'action') {
           this.$('draft-sensor-entity').value = item.entity_id;
           this._sensorDefaults({friendly_name:item.name, unit_of_measurement:item.defaults?.unit, device_class:item.defaults?.device_class});
         } else {
@@ -630,10 +642,10 @@ class HomePanelDraft extends HTMLElement {
     if (!this._draft) return;
     const room = this._draft.rooms.find(r => r.id === this._room), index = this._draft.rooms.indexOf(room);
     const cap = actionCapacity(this._draft);
-    const opaque = !editableRoom(room, this._caps), sensors = room.widgets.some(w => w.type === 'sensor');
+    const opaque = !editableRoom(room, this._caps), readings = room.widgets.some(w => w.type === 'sensor' || w.type === 'status');
     const plan = roomPlan(this._draft, room, this._caps);
     this.$('draft-base').textContent = `${this.t('local')} r${this._draft.revision} \u00b7 ${this._base.source} r${this._base.revision}` + (this._restoredGeneration ? ` \u00b7 ${this.t('history')} v${this._restoredGeneration}` : '');
-    this.$('draft-fit').textContent = opaque ? this.t('readOnly') : sensors ? `${plan.height} / ${plan.available} ${this.t('pixels')}` : `${room.widgets.length} / ${cap} ${this.t('tiles')} \u00b7 ${plan.pages} ${this.t('pages')}`;
+    this.$('draft-fit').textContent = opaque ? this.t('readOnly') : readings ? `${plan.height} / ${plan.available} ${this.t('pixels')}` : `${room.widgets.length} / ${cap} ${this.t('tiles')} \u00b7 ${plan.pages} ${this.t('pages')}`;
     const stale = !this._validationFresh || this._validationVersion !== this._version || !this._context.fresh;
     this.$('draft-status').textContent = [this._fields && this.t('pending'), this._context.sourceCurrent === false && this.t('changedSource'), this._capsChanged() && this.t('changedCaps'),
       'ESP32: ' + (this._validation ? `${stale ? this.t('previous') + ': ' : ''}${this.t(this._validation.valid ? 'accepted' : 'rejected')}` : this.t('notChecked'))].filter(Boolean).join(' \u00b7 ');
@@ -649,19 +661,23 @@ class HomePanelDraft extends HTMLElement {
     this.$('draft-save-ha').disabled = blocked || !this._context.storageOnline || !this._storeFresh || !this._unsaved || this._fields || formOpen;
     this.$('draft-load-ha').disabled = blocked || !this._context.storageOnline;
     this.$('draft-delete-ha').disabled = blocked || !this._context.storageOnline || !this._storeFresh || !this._storeHasRecord;
-    for (const id of ['draft-add-room', 'draft-room-up', 'draft-room-down', 'draft-delete-room', 'draft-add-action', 'draft-add-sensor']) this.$(id).disabled = blocked || this._fields || formOpen || this._capsChanged();
+    for (const id of ['draft-add-room', 'draft-room-up', 'draft-room-down', 'draft-delete-room', 'draft-add-action', 'draft-add-sensor', 'draft-add-status']) this.$(id).disabled = blocked || this._fields || formOpen || this._capsChanged();
     this.$('draft-add-room').disabled ||= this._draft.rooms.length >= this._caps.limits.rooms;
     this.$('draft-room-up').disabled ||= index === 0; this.$('draft-room-down').disabled ||= index === this._draft.rooms.length - 1;
     this.$('draft-delete-room').disabled ||= this._draft.rooms.length === 1 || !!opaque;
-    this.$('draft-add-action').disabled ||= !!opaque || !this._caps.features.includes('widget.action') || this._draft.rooms.reduce((n, r) => n + r.widgets.length, 0) >= this._caps.limits.widgets;
-    this.$('draft-add-sensor').disabled ||= !!opaque || room.kind === 'actions' || !this._caps.features.includes('widget.sensor') || !this._caps.widget_types.includes('sensor') || this._draft.rooms.reduce((n, r) => n + r.widgets.length, 0) >= this._caps.limits.widgets;
+    const full = this._draft.rooms.reduce((n, r) => n + r.widgets.length, 0) >= this._caps.limits.widgets;
+    this.$('draft-add-action').disabled ||= opaque || !this._caps.features.includes('widget.action') || full;
+    for (const kind of ['sensor', 'status']) {
+      this.$('draft-add-' + kind).hidden = kind === 'status' && !supportsReading(kind, this._caps);
+      this.$('draft-add-' + kind).disabled ||= opaque || room.kind === 'actions' || !supportsReading(kind, this._caps) || full;
+    }
     this.$('draft-update-room').disabled = blocked || !this._fields || formOpen || this._capsChanged(); this.$('draft-cancel-room').disabled = blocked || !this._fields || formOpen;
     this.$('draft-room-name').disabled = blocked || formOpen || this._capsChanged(); this.$('draft-room-kind').disabled = blocked || formOpen || !!opaque || this._capsChanged();
-    this.$('draft-room-kind').querySelector('[value="actions"]').disabled = sensors || !this._caps.features.includes('action-pages.v1');
+    this.$('draft-room-kind').querySelector('[value="actions"]').disabled = readings || !this._caps.features.includes('action-pages.v1');
     for (const button of root.querySelectorAll('#draft-widgets button')) {
       const widget = room.widgets.find(w => w.id === button.parentElement.dataset.widgetId);
       button.disabled = blocked || this._fields || formOpen || this._capsChanged() || button.dataset.blocked === 'true' ||
-        (button.classList.contains('draft-widget-main') && !editableAction(widget, this._caps) && !(editableSensor(widget, this._caps) && !opaque));
+        (button.classList.contains('draft-widget-main') && !editableAction(widget, this._caps) && !(editableReading(widget, this._caps) && !opaque));
     }
     this.$('draft-check').disabled = blocked || this._fields || formOpen || !this._context.canValidate || this._capsChanged();
     this.$('draft-send').disabled = !this._canSend();

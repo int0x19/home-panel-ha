@@ -1,4 +1,4 @@
-"""Bounded, read-only action/sensor catalog from public registry/state APIs."""
+"""Bounded, read-only widget catalog from public registry/state APIs."""
 
 import re
 
@@ -7,7 +7,7 @@ from homeassistant.core import HomeAssistant, callback
 from homeassistant.helpers import area_registry as ar, entity_registry as er
 
 ACTION_DOMAINS = ("script", "scene", "button", "input_button")
-CATALOG_DOMAINS = {"action": ACTION_DOMAINS, "sensor": ("sensor",)}
+CATALOG_DOMAINS = {"action": ACTION_DOMAINS, "sensor": ("sensor",), "status": ("binary_sensor",)}
 MAX_AREAS = 256
 
 
@@ -54,11 +54,11 @@ def async_catalog(hass: HomeAssistant, *, scope: str = "action", domain: str = "
                      "domain": entity_id.partition(".")[0], "area_id": effective_area,
                      "area_name": area.name[:256] if area else None,
                      "availability": availability, "disabled": disabled, "hidden": hidden})
-        if scope == "sensor":
+        if scope in ("sensor", "status"):
             defaults = {}
             attributes = state.attributes if state else {}
             unit, device_class = attributes.get("unit_of_measurement"), attributes.get("device_class")
-            if (isinstance(unit, str) and len(unit) <= 32 and
+            if (scope == "sensor" and isinstance(unit, str) and len(unit) <= 32 and
                     not any(ord(c) < 32 or 127 <= ord(c) <= 159 or 0xD800 <= ord(c) <= 0xDFFF for c in unit)):
                 defaults["unit"] = unit
             if isinstance(device_class, str) and re.fullmatch(r"[a-z][a-z0-9_]{0,63}", device_class):

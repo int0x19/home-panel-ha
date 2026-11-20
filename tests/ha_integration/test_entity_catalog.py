@@ -101,6 +101,7 @@ async def test_bounded_paging_and_area_list(hass, catalog):
                                     {"query":"x" * 129}, {"area_id":"x" * 129},
                                     {"include_inactive":"yes"}, {"service":"script.turn_on"},
                                     {"scope":"light"}, {"scope":"sensor", "domain":"script"},
+                                    {"scope":"status", "domain":"sensor"}, {"domain":"binary_sensor"},
                                     {"domain":"sensor"}])
 async def test_catalog_schema_rejects_before_query(catalog, filters):
     _, query = catalog
@@ -140,6 +141,23 @@ async def test_sensor_catalog_isolated_scope_and_allowlisted_defaults(hass, cata
     assert (await query())["result"]["domains"] == ["script", "scene", "button", "input_button"]
     assert (await query(scope="sensor", query="HUM", domain="sensor"))["result"]["total"] == 1
     assert len(panel.calls) == before == 0
+
+
+async def test_status_catalog_only_exposes_binary_metadata(hass, catalog, panel):
+    _, query = catalog
+    hass.states.async_set("binary_sensor.plug_problem", "on", {"friendly_name":"Plug fault",
+        "device_class":"problem", "unit_of_measurement":"INVALID", "extra":"PRIVATE"})
+    hass.states.async_set("binary_sensor.motion", "unavailable", {"device_class":"motion"})
+    hass.states.async_set("sensor.other", "12")
+    response = await query(scope="status", domain="binary_sensor", query="plug")
+    assert response["success"]
+    data = response["result"]
+    assert data["scope"] == "status_entities" and data["domains"] == ["binary_sensor"]
+    assert len(data["items"]) == 1
+    row = data["items"][0]
+    assert row["entity_id"] == "binary_sensor.plug_problem" and row["name"] == "Plug fault"
+    assert row["defaults"] == {"device_class":"problem"} and "state" not in row
+    assert "PRIVATE" not in json.dumps(data) and not panel.calls
 
 
 @pytest.mark.parametrize("attributes", [

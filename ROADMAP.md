@@ -17,9 +17,15 @@ The same workflow applied a numeric-sensor binding edit as Active 77 after a
 brownout rollback on the earlier attempt. The ESP32 subscribed to the new
 source and received its value without OTA. The Kitchen group then passed
 as Active 78 with exact candidate readback and both live readings visible
-on the panel. The generated interface remains available. The firmware
-roadmap next reuses live header data and System navigation in these rooms;
-broader widget migration and action dispatch are not covered.
+on the panel. A later OTA verified live header data and System navigation
+with the same Active/Backup. The generated interface remains available.
+
+Development 0.1.3 adds a room-only binary sensor form, enabled only when
+the panel reports both `widget.status` and the `status` widget type. The
+admin catalog lists only `binary_sensor.*` in this scope; existing numeric
+sensor and action scopes are unchanged. The shared draft editor validates
+geometry, identity and binding budgets. No new firmware or device action is
+needed. Next check this form on installed HA with one read-only room draft.
 
 ## Candidate Maintenance (2026-11-18)
 

@@ -41,11 +41,12 @@ not a Home Assistant access token. Standard ESPHome integration remains in use.
 
 ### Manual Installation
 
-Build or obtain a `home_panel_core-0.1.2-py3-none-any.whl`, then create the
-offline-installable integration archive:
+For the current development checkout (0.1.3), use a
+`home_panel_core-0.1.3-py3-none-any.whl` built from the pinned source revision.
+The released HA 0.1.2 archive is unchanged. To build the development archive:
 
 ```sh
-python3 tools/build_release.py --wheel /path/to/home_panel_core-0.1.2-py3-none-any.whl
+python3 tools/build_release.py --wheel /path/to/home_panel_core-0.1.3-py3-none-any.whl
 ```
 
 Extract `dist/home-panel-ha.zip` into the Home Assistant configuration directory,
@@ -77,10 +78,10 @@ Use Python >=3.14.2 for HA 2026.11, separately from the firmware ESPHome environ
 ```sh
 python3.14 -m venv .venv
 .venv/bin/python -m pip install -r requirements-test.txt
-make core-install CORE_WHEEL=/path/to/home_panel_core-0.1.2-py3-none-any.whl
-make test CORE_WHEEL=/path/to/home_panel_core-0.1.2-py3-none-any.whl
-make release CORE_WHEEL=/path/to/home_panel_core-0.1.2-py3-none-any.whl
-make marketplace CORE_WHEEL=/path/to/home_panel_core-0.1.2-py3-none-any.whl
+make core-install CORE_WHEEL=/path/to/home_panel_core-0.1.3-py3-none-any.whl
+make test CORE_WHEEL=/path/to/home_panel_core-0.1.3-py3-none-any.whl
+make release CORE_WHEEL=/path/to/home_panel_core-0.1.3-py3-none-any.whl
+make marketplace CORE_WHEEL=/path/to/home_panel_core-0.1.3-py3-none-any.whl
 ```
 
 The tests use actual HA 2026.11 fixtures, synthetic transport and temporary
@@ -94,7 +95,7 @@ Chromium. The same path is available locally with Node >=20:
 ```sh
 npm ci
 npx playwright install --with-deps chromium
-HA_BROWSER_MANAGED_PLAYWRIGHT=1 make test CORE_WHEEL=/path/to/home_panel_core-0.1.2-py3-none-any.whl
+HA_BROWSER_MANAGED_PLAYWRIGHT=1 make test CORE_WHEEL=/path/to/home_panel_core-0.1.3-py3-none-any.whl
 ```
 
 After installing npm dependencies, use this managed-browser mode; the distro
