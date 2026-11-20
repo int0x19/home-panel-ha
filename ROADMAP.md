@@ -4,13 +4,20 @@ The complete editor/integration backlog moved here from esp32panel at the
 repository split. Device firmware/native renderer acceptance stays in that repo;
 shared model/protocol work belongs to home-panel-core.
 
-## Current Checkpoint (2026-11-18)
+## Current Checkpoint (2026-11-20)
+
+Installed HA 0.1.2 and the physical panel passed Send, Discard and backup
+staging. Exact exports confirmed Active 56 and Backup 55 stayed unchanged.
+Candidate 73 was discarded, Backup 55 was staged as Candidate 74 with
+only the revision replaced, then the slot was emptied with high-water 74.
+Next verify separate Apply on installed HA; successful Apply rotates Backup.
+
+## Candidate Maintenance (2026-11-18)
 
 Import **Candidate** and choose **Remove candidate** to clear the staged slot.
 Import **Backup** and choose **Stage backup as candidate** to stage the exact
 copy at a higher revision when the slot is empty. Both require the latest
 matching import and explicit confirmation. Recovery prepares a separate Apply.
-The next step is to verify the full sequence on installed HA and ESP32.
 All 262 HA tests passed with the pinned wheel, including Chromium and
 offline bundles. Shared core passed 80 tests and the Linux production flash
 client passed 12 checks.
