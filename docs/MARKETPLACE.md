@@ -67,7 +67,7 @@ This preparation does not create GitHub repositories or publish any files.
 Local packaging, using the pinned core wheel:
 
 ```sh
-make release marketplace CORE_WHEEL=/path/to/home_panel_core-0.1.2-py3-none-any.whl
+make release marketplace CORE_WHEEL=/path/to/home_panel_core-0.1.3-py3-none-any.whl
 ```
 
 | Artifact | Destination when unpacking |
