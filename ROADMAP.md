@@ -20,12 +20,15 @@ as Active 78 with exact candidate readback and both live readings visible
 on the panel. A later OTA verified live header data and System navigation
 with the same Active/Backup. The generated interface remains available.
 
-Development 0.1.3 adds a room-only binary sensor form, enabled only when
+[Released HA 0.1.3](https://github.com/int0x19/home-panel-ha/releases/tag/0.1.3)
+adds a room-only binary sensor form, enabled only when
 the panel reports both `widget.status` and the `status` widget type. The
 admin catalog lists only `binary_sensor.*` in this scope; existing numeric
 sensor and action scopes are unchanged. The shared draft editor validates
 geometry, identity and binding budgets. No new firmware or device action is
-needed. Next check this form on installed HA with one read-only room draft.
+needed. The running panel has accepted one real binary-sensor draft through
+direct Validate, without writing or applying it. Next update installed HA
+and check the same flow from the editor.
 
 ## Candidate Maintenance (2026-11-18)
 
