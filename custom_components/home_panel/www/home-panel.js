@@ -294,14 +294,21 @@ class HomePanelConfig extends HTMLElement {
     const connection = this._lastConnection;
     const wasOnline = this._lastOnline;
     const userChanged = this._lastUserId !== undefined && this._lastUserId !== value?.user?.id;
+    const lang = (value?.locale?.language || value?.language || "en").startsWith("ru") ? "ru" : "en";
+    const languageChanged = this._lang !== lang;
     this._hass = value;
-    this._lang = (value?.locale?.language || value?.language || "en").startsWith("ru") ? "ru" : "en";
+    this._lang = lang;
+    const adminChanged = this._lastAdmin !== this._admin;
+    const connectionChanged = connection !== value?.connection || wasOnline !== this._online;
+    // Keep entity suggestions current without disturbing the open form or scroll.
+    this.$('draft-editor').setEntityStates(value?.states);
+    if (!adminChanged && !userChanged && !connectionChanged && !languageChanged) return;
     if (!this._admin || userChanged) {
       this._reset();
       this._entries = [];
       this._loaded = false;
       this._attempted = false;
-    } else if (connection && (connection !== value.connection || wasOnline !== this._online)) {
+    } else if (connection && connectionChanged) {
       this._epoch++;
       this._busy = false;
       this._fresh = false;
@@ -317,6 +324,7 @@ class HomePanelConfig extends HTMLElement {
     this._lastConnection = value?.connection;
     this._lastOnline = this._online;
     this._lastUserId = value?.user?.id;
+    this._lastAdmin = this._admin;
     this._update();
     if (this.isConnected && this._admin && this._online && !this._attempted) this._loadPanels();
   }
@@ -737,7 +745,7 @@ class HomePanelConfig extends HTMLElement {
     this.$("validation").className = "report " + (this._validation && !staleReport ? (this._validation.valid ? "success" : "warning") : "muted");
     this.$("originalReport").className = "report " + (this._fresh && this._original?.validation ? "success" : "muted");
     const draft = this.$('draft-editor');
-    draft.context = {language:this._lang, capabilities:this._status?.capabilities, states:this._hass?.states,
+    draft.context = {language:this._lang, capabilities:this._status?.capabilities,
       catalogKey:this._epoch,
       revisionHighWater:Math.max(this._status?.status.high_water_revision || 0, this._status?.status.loaded_revision || 0, ...Object.values(this._status?.status.files || {}).map(file => file.revision || 0)),
       canSend:this._canJob && !!this._status?.candidate_send_available,

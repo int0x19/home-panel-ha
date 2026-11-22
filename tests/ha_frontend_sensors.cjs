@@ -35,7 +35,32 @@ module.exports = async function testSensors(page, output) {
   await page.locator('#draft-sensor-group').selectOption('@new');
   await page.locator('#draft-group-name').fill('Комната');
   assert.equal(await page.locator('#draft-save-ha').isDisabled(), true, 'Pending binding cannot be saved');
-  await page.evaluate(() => harness.update());
+  await page.setViewportSize({width:390, height:560});
+  const live = await page.evaluate(async () => {
+    const panel = harness.element, draft = panel.$('draft-editor'), title = draft.$('draft-group-name');
+    title.focus();
+    panel.scrollTop = panel.scrollHeight;
+    await new Promise(requestAnimationFrame);
+    const scroll = panel.scrollTop, before = harness.calls.length;
+    const observer = new MutationObserver(() => {});
+    for (const root of [panel.shadowRoot, draft.shadowRoot]) observer.observe(root, {
+      subtree:true, attributes:true, childList:true, characterData:true,
+    });
+    let writes = 0;
+    for (let sample = 0; sample < 5; sample++) {
+      harness.hass = {...harness.hass, states:{...harness.hass.states,
+        'sensor.live_test':{state:String(sample), attributes:{friendly_name:'Live update'}}}};
+      harness.update();
+      writes += observer.takeRecords().length;
+      await new Promise(requestAnimationFrame);
+    }
+    observer.disconnect();
+    return {scroll, after:panel.scrollTop, focused:draft.shadowRoot.activeElement === title,
+      calls:harness.calls.length - before, writes, state:draft._entityStates['sensor.live_test'].state};
+  });
+  assert.ok(live.scroll > 0, 'Regression must exercise real scrolling');
+  assert.deepEqual(live, {scroll:live.scroll, after:live.scroll, focused:true, calls:0, writes:0, state:'4'});
+  await page.setViewportSize({width:1280, height:900});
   assert.equal(await page.locator('#draft-group-name').inputValue(), 'Комната', 'HA updates preserve fields');
   await page.locator('#draft-update-sensor').click();
   let draft = await document();

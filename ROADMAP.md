@@ -30,6 +30,12 @@ needed. The running panel has accepted one real binary-sensor draft through
 direct Validate, without writing or applying it. Next update installed HA
 and check the same flow from the editor.
 
+The installed 0.1.3 editor exposed a scroll reset during HA state updates
+and stale assets in Firefox. The local 0.1.4 fix skips renders for state-only
+updates and fingerprints the complete frontend asset graph. Chromium and
+Firefox ESR checks pass. Next install or publish the 0.1.4 bundle, reopen
+Home Panel and complete the Validate-only check without Send or Apply.
+
 ## Candidate Maintenance (2026-11-18)
 
 Import **Candidate** and choose **Remove candidate** to clear the staged slot.

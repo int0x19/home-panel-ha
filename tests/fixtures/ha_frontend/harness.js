@@ -1,13 +1,18 @@
 // Test-only HA property adapter. Commands use the actual HA WebSocket server.
-import "/home_panel_static/home-panel.js";
-
 const element = document.querySelector("home-panel-config");
 const waiting = new Map();
 let socket, nextId = 0;
+function request(command) {
+  return new Promise((resolve, reject) => {
+    const id = ++nextId;
+    waiting.set(id, {resolve, reject});
+    socket.send(JSON.stringify({id, ...command}));
+  });
+}
 const harness = window.harness = {
   element, calls: [], results: {}, faults: [], menuEvents: 0,
   hass: {user: {id: "test-admin", is_admin: true}, locale: {language: "en"}, connection: {connected: false}},
-  update() { element.hass = this.hass; },
+  update() { if (customElements.get("home-panel-config")) element.hass = this.hass; },
   theme(dark) {
     const colors = dark ? {"primary-background-color": "#111416", "card-background-color": "#1d2225",
       "primary-text-color": "#e9edef", "secondary-text-color": "#aab6bd", "divider-color": "#414b51",
@@ -40,6 +45,10 @@ const harness = window.harness = {
       for (const job of waiting.values()) job.reject({code: "cannot_connect"});
       waiting.clear();
     };
+    if (!customElements.get("home-panel-config")) {
+      const panels = await request({type:"get_panels"});
+      await import(panels["home-panel-config"].config._panel_custom.module_url);
+    }
     this.hass.connection = {connected: true};
     this.update();
   },
@@ -52,11 +61,7 @@ harness.hass.callWS = async command => {
   harness.calls.push(structuredClone(command));
   const fault = harness.faults.shift();
   if (fault?.error) throw {code: fault.error, message: "UNTRUSTED PRIVATE TRANSPORT DETAIL"};
-  const result = await new Promise((resolve, reject) => {
-    const id = ++nextId;
-    waiting.set(id, {resolve, reject});
-    socket.send(JSON.stringify({id, ...command}));
-  });
+  const result = await request(command);
   harness.results[command.type + '/' + (command.source || '')] = structuredClone(result);
   if (fault?.lost) throw {code:'cannot_connect'};
   if (fault?.mutate) fault.mutate(result);
@@ -64,5 +69,4 @@ harness.hass.callWS = async command => {
   return result;
 };
 element.addEventListener("hass-toggle-menu", () => harness.menuEvents++);
-harness.update();
 await harness.connect();

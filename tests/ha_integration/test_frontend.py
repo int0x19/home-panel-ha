@@ -2,6 +2,7 @@
 
 from importlib.metadata import version
 from pathlib import Path
+import re
 
 from custom_components.home_panel._core import asset_path
 
@@ -11,7 +12,7 @@ from homeassistant.components import frontend
 from homeassistant.setup import async_setup_component
 
 from custom_components.home_panel.const import CONF_ACCESS_KEY, CONF_URL, DOMAIN
-from custom_components.home_panel.frontend import MODULE_URL, PANEL_PATH, STATIC_PATH, async_setup_panel
+from custom_components.home_panel.frontend import PANEL_PATH, STATIC_PATH, _asset_routes, async_setup_panel
 from support import DEVICE_ID, TOKEN
 
 
@@ -36,13 +37,15 @@ async def test_frontend_assets_and_sidebar_authorization(hass, hass_client, hass
             if visible:
                 panel = result["result"][PANEL_PATH]
                 assert panel["require_admin"]
-                assert panel["config"]["_panel_custom"]["module_url"] == MODULE_URL
+                module_url = panel["config"]["_panel_custom"]["module_url"]
+                assert re.fullmatch(STATIC_PATH + r"/[0-9a-f]{16}/home-panel\.js", module_url)
                 assert not panel["config"]["_panel_custom"]["embed_iframe"]
                 assert TOKEN not in str(panel)
         client = await hass_client()
+        static_url = module_url.rsplit("/", 1)[0]
         for asset, content_type in (("home-panel.js", "javascript"), ("home-panel.css", "css"),
                                     ("draft-editor.js", "javascript"), ("runtime-draft.mjs", "javascript")):
-            response = await client.get(STATIC_PATH + "/" + asset)
+            response = await client.get(static_url + "/" + asset)
             assert response.status == 200
             assert content_type in response.content_type
             text = await response.text()
@@ -51,7 +54,8 @@ async def test_frontend_assets_and_sidebar_authorization(hass, hass_client, hass
                 source = asset_path(asset)
             assert text == source.read_text()
             assert TOKEN not in text
-        for path in (STATIC_PATH + "/../const.py", STATIC_PATH + "/secrets.yaml", STATIC_PATH + "/"):
+        for path in (static_url + "/../const.py", static_url + "/secrets.yaml", static_url + "/",
+                     STATIC_PATH + "/home-panel.js?v=1"):
             assert (await client.get(path)).status in (400, 403, 404)
         assert await hass.config_entries.async_unload(entry.entry_id)
         assert frontend.async_panel_exists(hass, PANEL_PATH)
@@ -73,3 +77,19 @@ async def test_existing_panel_is_not_overwritten(hass, hass_client, caplog):
                                          config={"owner": "other-integration"})
     assert not await async_setup_panel(hass)
     assert "already in use" in caplog.text
+
+
+def test_every_editor_asset_affects_cache_key(tmp_path, monkeypatch):
+    core = tmp_path / "runtime-draft.mjs"
+    files = [tmp_path / name for name in ("home-panel.js", "draft-editor.js", "home-panel.css")] + [core]
+    monkeypatch.setattr("custom_components.home_panel.frontend._WWW", tmp_path)
+    monkeypatch.setattr("custom_components.home_panel.frontend.asset_path", lambda _: core)
+    for file in files:
+        file.write_text(file.name)
+    before, _ = _asset_routes()
+    assert _asset_routes() == (before, core)
+    for file in files:
+        file.write_text("changed:" + file.name)
+        assert _asset_routes()[0] != before
+        file.write_text(file.name)
+        assert _asset_routes()[0] == before

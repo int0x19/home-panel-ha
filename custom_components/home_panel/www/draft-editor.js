@@ -209,7 +209,7 @@ class HomePanelDraft extends HTMLElement {
         target:this.$('draft-sensor-target').value, settings,
         ...(selected ? {group_name:this.$('draft-group-name').value.trim()} : {})});
     };
-    this.$('draft-sensor-entity').onchange = () => this._sensorDefaults(this._context.states?.[this.$('draft-sensor-entity').value]?.attributes);
+    this.$('draft-sensor-entity').onchange = () => this._sensorDefaults(this._entityStates?.[this.$('draft-sensor-entity').value]?.attributes);
     this.$('draft-sensor-target').onchange = () => { if (this._editingKind === 'sensor') this._sensorGroups(this.$('draft-sensor-group').value); };
     this.$('draft-sensor-group').onchange = () => this._sensorGroupField();
     this.$('draft-cancel-action').onclick = () => { if (this._canLeave()) { this._editing = null; this._fields = false; this._render(); } };
@@ -222,7 +222,7 @@ class HomePanelDraft extends HTMLElement {
     };
     for (const form of ['draft-room-form', 'draft-action-form', 'draft-sensor-form']) this.$(form).oninput = () => { this._fields = true; this._controls(); };
     this.$('draft-entity').onchange = () => {
-      const state = this._context.states?.[this.$('draft-entity').value];
+      const state = this._entityStates?.[this.$('draft-entity').value];
       if (!this.$('draft-action-name').value && state) this.$('draft-action-name').value = state.attributes.friendly_name || state.entity_id;
       this._stopField();
     };
@@ -266,6 +266,7 @@ class HomePanelDraft extends HTMLElement {
   get sourceHash() { return this._base?.sha256; }
   get importId() { return this._sendImport; }
   get document() { return this._draft ? structuredClone(this._draft) : null; }
+  setEntityStates(states) { this._entityStates = states; }
   set context(value) {
     if (value.catalogKey !== this._context.catalogKey || !value.storageOnline) this._closeEntities();
     const languageChanged = this._lang !== (value.language || 'en');
@@ -492,7 +493,7 @@ class HomePanelDraft extends HTMLElement {
     if (!id && room.kind !== 'actions' && room.widgets.every(w => w.type === 'action') && room.widgets.length >= actionCapacity(this._draft)) {
       this.$('draft-target').value = targets.find(r => r.kind === 'actions')?.id || room.id;
     }
-    this.$('draft-entities').replaceChildren(...Object.entries(this._context.states || {}).filter(([id]) => /^(script|scene|button|input_button)\./.test(id)).slice(0, 50).map(([id, state]) => new Option(state.attributes.friendly_name || id, id)));
+    this.$('draft-entities').replaceChildren(...Object.entries(this._entityStates || {}).filter(([id]) => /^(script|scene|button|input_button)\./.test(id)).slice(0, 50).map(([id, state]) => new Option(state.attributes.friendly_name || id, id)));
     this.$('draft-action-form').hidden = false;
     this.$('draft-sensor-form').hidden = true;
     this._stopField(); this._controls(); this.$('draft-action-name').focus();
@@ -516,7 +517,7 @@ class HomePanelDraft extends HTMLElement {
     this.$('draft-sensor-target').value = room.id;
     if (binary) this.$('draft-group-name-field').hidden = true;
     else this._sensorGroups(settings.group || '');
-    this.$('draft-sensor-entities').replaceChildren(...Object.entries(this._context.states || {}).filter(([id]) => id.startsWith(domain + '.')).slice(0, 50).map(([id, state]) => new Option(state.attributes.friendly_name || id, id)));
+    this.$('draft-sensor-entities').replaceChildren(...Object.entries(this._entityStates || {}).filter(([id]) => id.startsWith(domain + '.')).slice(0, 50).map(([id, state]) => new Option(state.attributes.friendly_name || id, id)));
     this.$('draft-action-form').hidden = true; this.$('draft-sensor-form').hidden = false;
     this._controls(); this.$('draft-sensor-name').focus();
   }
