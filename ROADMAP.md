@@ -4,7 +4,7 @@ The complete editor/integration backlog moved here from esp32panel at the
 repository split. Device firmware/native renderer acceptance stays in that repo;
 shared model/protocol work belongs to home-panel-core.
 
-## Current Checkpoint (2026-11-20)
+## Current Checkpoint (2026-11-22)
 
 Installed HA 0.1.2 and the physical panel passed Send, Discard and backup
 staging. Exact exports confirmed Active 56 and Backup 55 stayed unchanged.
@@ -31,10 +31,13 @@ direct Validate, without writing or applying it. Next update installed HA
 and check the same flow from the editor.
 
 The installed 0.1.3 editor exposed a scroll reset during HA state updates
-and stale assets in Firefox. The local 0.1.4 fix skips renders for state-only
+and stale assets in Firefox. The 0.1.4 fix skips renders for state-only
 updates and fingerprints the complete frontend asset graph. Chromium and
-Firefox ESR checks pass. Next install or publish the 0.1.4 bundle, reopen
-Home Panel and complete the Validate-only check without Send or Apply.
+Firefox ESR checks pass. On the isolated HA lab, pairing and scrolling
+worked; a binary sensor draft passed both validations with the read-only
+panel simulator. Active revision 31 stayed loaded and no candidate was
+created. Next install the published 0.1.4 bundle on the working HA and
+repeat the Validate-only check against the actual panel, without Send or Apply.
 
 ## Candidate Maintenance (2026-11-18)
 

@@ -13,6 +13,10 @@ submodules or handwritten copies of those implementations here.
 
 ## Installation
 
+Version **0.1.4** keeps the editor stable during background state updates
+and prevents browsers from reusing older editor files after an upgrade.
+See the [0.1.4 release notes](docs/releases/0.1.4.md).
+
 Version **0.1.3** adds capability-gated binary sensor cards to room drafts.
 See the [0.1.3 release notes](docs/releases/0.1.3.md). Compatible panels do
 not need a firmware update.
@@ -30,7 +34,7 @@ this compatibility fix. Upgrade/restart HA, then retry the panel setup.
 
 Requires **Home Assistant 2026.11.0 or newer**. Marketplace installs the ZIP
 attached to a [published release](https://github.com/int0x19/home-panel-ha/releases),
-not a source branch. Select the published version **0.1.3**, not `main`
+not a source branch. Select the published version **0.1.4**, not `main`
 or a commit hash.
 See the [publication and installation checklist](docs/MARKETPLACE.md).
 
@@ -45,9 +49,8 @@ not a Home Assistant access token. Standard ESPHome integration remains in use.
 
 ### Manual Installation
 
-To rebuild the 0.1.3 archive from source, use a
+To rebuild the 0.1.4 archive from source, use a
 `home_panel_core-0.1.3-py3-none-any.whl` built from the pinned source revision.
-The released HA 0.1.2 archive is unchanged.
 
 ```sh
 python3 tools/build_release.py --wheel /path/to/home_panel_core-0.1.3-py3-none-any.whl
